@@ -301,9 +301,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json'
-            ])->post($url, [
+            $payload = [
                 'contents' => [
                     [
                         'parts' => [
@@ -317,11 +315,31 @@ class GeminiAnalysisService
                 'generationConfig' => [
                     'responseMimeType' => 'application/json'
                 ]
-            ]);
+            ];
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, $payload);
 
             if ($response->failed()) {
                 $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                throw new Exception($errorMsg);
+                
+                // Fallback if search grounding is restricted by quota or billing
+                if (str_contains(strtolower($errorMsg), 'quota') || str_contains(strtolower($errorMsg), 'billing') || str_contains(strtolower($errorMsg), 'limit') || str_contains(strtolower($errorMsg), 'free')) {
+                    \Log::warning('Search Grounding failed due to quota/billing. Retrying without Google Search tool.', ['error' => $errorMsg]);
+                    
+                    unset($payload['tools']);
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json'
+                    ])->post($url, $payload);
+                    
+                    if ($response->failed()) {
+                        $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
+                        throw new Exception($errorMsg);
+                    }
+                } else {
+                    throw new Exception($errorMsg);
+                }
             }
 
             $resultText = $response->json('candidates.0.content.parts.0.text');
@@ -389,9 +407,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json'
-            ])->post($url, [
+            $payload = [
                 'contents' => [
                     [
                         'parts' => [
@@ -405,11 +421,31 @@ class GeminiAnalysisService
                 'generationConfig' => [
                     'responseMimeType' => 'application/json'
                 ]
-            ]);
+            ];
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, $payload);
 
             if ($response->failed()) {
                 $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                throw new Exception($errorMsg);
+                
+                // Fallback if search grounding is restricted by quota or billing
+                if (str_contains(strtolower($errorMsg), 'quota') || str_contains(strtolower($errorMsg), 'billing') || str_contains(strtolower($errorMsg), 'limit') || str_contains(strtolower($errorMsg), 'free')) {
+                    \Log::warning('Bet Path search grounding failed due to quota/billing. Retrying without Google Search tool.', ['error' => $errorMsg]);
+                    
+                    unset($payload['tools']);
+                    $response = Http::withHeaders([
+                        'Content-Type' => 'application/json'
+                    ])->post($url, $payload);
+                    
+                    if ($response->failed()) {
+                        $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
+                        throw new Exception($errorMsg);
+                    }
+                } else {
+                    throw new Exception($errorMsg);
+                }
             }
 
             $resultText = $response->json('candidates.0.content.parts.0.text');
