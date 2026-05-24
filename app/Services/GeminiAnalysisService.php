@@ -278,7 +278,11 @@ class GeminiAnalysisService
         $prompt .= "- {$sportFilter}\n";
         $prompt .= "- Nivel de riesgo sugerido: '{$risk}' (puede ser 'segura', 'moderada' o 'improbable')\n";
         $prompt .= "- Rango de cuotas: {$oddsFilter}\n\n";
-        $prompt .= "Investiga en internet utilizando tu capacidad de búsqueda web en tiempo real. Busca mercados reales (Ganador, Ambos Anotan, Over/Under de goles/puntos) y cuotas reales de casas de apuestas.\n\n";
+        $prompt .= "RESTRICCIONES DE CATEGORÍA (MUY IMPORTANTE - exclúyelas sin excepción):\n";
+        $prompt .= "- Para competiciones de CLUBES: únicamente primera división (ej: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, MLS, Liga MX, etc.) o segunda división (ej: Championship, Serie B, Segunda División, etc.). Excluye absolutamente cualquier liga de tercera división o inferior.\n";
+        $prompt .= "- Para competiciones INTERNACIONALES/SELECCIONES: únicamente categoría absoluta (senior) o Sub-21 (U21) como máximo. Excluye Sub-20, Sub-17, Sub-15 y cualquier categoría juvenil inferior a U21.\n";
+        $prompt .= "- Excluye también ligas regionales, amateur, reservas, filiales y competiciones universitarias.\n\n";
+        $prompt .= "Investiga en internet utilizando tu capacidad de búsqueda web en tiempo real. Busca mercados reales (Ganador, Ambos Anotan, Over/Under de goles/puntos) y cuotas reales de casas de apuestas. Incluye siempre la hora de inicio del partido.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"recommendations\": [\n";
@@ -288,6 +292,7 @@ class GeminiAnalysisService
         $prompt .= "      \"home_team\": \"Nombre del equipo local\",\n";
         $prompt .= "      \"away_team\": \"Nombre del equipo visitante\",\n";
         $prompt .= "      \"match_date\": \"Fecha en formato YYYY-MM-DD\",\n";
+        $prompt .= "      \"match_time\": \"Hora de inicio en formato HH:MM (hora local del estadio o UTC si no se sabe)\",\n";
         $prompt .= "      \"market_name\": \"Mercado en español (ej: Ganador, Ambos Anotan, Total de Goles)\",\n";
         $prompt .= "      \"selection\": \"La selección recomendada exacta (ej: Real Madrid, Más de 2.5, Lakers -4.5)\",\n";
         $prompt .= "      \"odds\": 1.85,\n";

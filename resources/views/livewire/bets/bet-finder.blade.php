@@ -164,7 +164,13 @@
 
                                         <!-- Actions -->
                                         <div class="pt-3 border-t border-slate-800/60 flex justify-between items-center">
-                                            <span class="text-[10px] text-slate-500">Fecha: {{ $rec['match_date'] }}</span>
+                                            <span class="text-[10px] text-slate-500 flex items-center gap-1">
+                                                <i class="fa-regular fa-calendar"></i>
+                                                {{ $rec['match_date'] }}
+                                                @if(!empty($rec['match_time']))
+                                                    &nbsp;<i class="fa-regular fa-clock"></i> {{ $rec['match_time'] }}
+                                                @endif
+                                            </span>
                                             <button type="button" wire:click="openRegisterModal({{ $index }})"
                                                 class="py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition duration-200 flex items-center gap-1.5 shadow-md shadow-indigo-600/10">
                                                 <i class="fa-solid fa-plus"></i> Registrar Apuesta
