@@ -367,16 +367,52 @@
                                             <span class="text-[9px] text-slate-500">Analizado: {{ $bet->analyzed_at->format('d M') }}</span>
                                         </div>
                                         <div class="space-y-3">
-                                            <div>
-                                                <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Evaluación de Riesgo</span>
-                                                <span class="text-sm font-black uppercase {{ ($bet->ai_analysis['risk'] ?? '') === 'segura' ? 'text-emerald-400' : (($bet->ai_analysis['risk'] ?? '') === 'moderada' ? 'text-amber-400' : 'text-red-400') }}">
-                                                    {{ $bet->ai_analysis['risk'] ?? 'Moderado' }}
-                                                </span>
+                                            <div class="flex gap-4 items-center">
+                                                <div>
+                                                    <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Evaluación de Riesgo</span>
+                                                    <span class="text-xs font-black uppercase {{ ($bet->ai_analysis['risk'] ?? '') === 'segura' ? 'text-emerald-400' : (($bet->ai_analysis['risk'] ?? '') === 'moderada' ? 'text-amber-400' : 'text-red-400') }}">
+                                                        {{ $bet->ai_analysis['risk'] ?? 'Moderado' }}
+                                                    </span>
+                                                </div>
+                                                @if(isset($bet->ai_analysis['score']))
+                                                    <div class="border-l border-slate-800 pl-4">
+                                                        <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Nota Global</span>
+                                                        <span class="text-xs font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
+                                                            {{ $bet->ai_analysis['score'] }}/100
+                                                        </span>
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div>
                                                 <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Justificación / Forma</span>
                                                 <p class="text-[11px] leading-relaxed text-slate-300">{{ $bet->ai_analysis['analysis'] ?? 'Análisis no estructurado.' }}</p>
                                             </div>
+
+                                            @if(isset($bet->ai_analysis['selection_scores']) && is_array($bet->ai_analysis['selection_scores']) && count($bet->ai_analysis['selection_scores']) > 0)
+                                                <div class="pt-2 border-t border-slate-800/60">
+                                                    <span class="text-[9px] uppercase tracking-wider text-slate-500 block mb-1.5">Notas de Selecciones</span>
+                                                    <div class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                                                        @foreach($bet->ai_analysis['selection_scores'] as $selScore)
+                                                            @php
+                                                                $selIndex = ($selScore['selection_index'] ?? 1) - 1;
+                                                                $selModel = $bet->selections[$selIndex] ?? null;
+                                                            @endphp
+                                                            @if($selModel)
+                                                                <div class="flex justify-between items-center text-[10px] bg-slate-900/30 px-2 py-1.5 rounded-lg border border-slate-800/40 gap-2">
+                                                                    <div class="truncate flex-1">
+                                                                        <span class="font-bold text-slate-200 block truncate">{{ $selModel->teamHome?->name ?? 'N/A' }} vs {{ $selModel->teamAway?->name ?? 'N/A' }}</span>
+                                                                        <span class="text-slate-500 text-[8px] block truncate">{{ $selModel->market_name }}: <span class="text-slate-400 font-medium">{{ $selModel->selection }}</span></span>
+                                                                    </div>
+                                                                    <span class="font-extrabold text-[9px] shrink-0 px-1.5 py-0.5 rounded {{ ($selScore['score'] ?? 0) >= 75 ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : (($selScore['score'] ?? 0) >= 50 ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-red-400 bg-red-500/10 border border-red-500/20') }}">
+                                                                        {{ $selScore['score'] ?? 0 }}/100
+                                                                    </span>
+                                                                </div>
+                                                            @endif
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+
                                             @if(isset($bet->ai_analysis['stats']) && is_array($bet->ai_analysis['stats']))
                                                 <div class="pt-2 border-t border-slate-800/60">
                                                     <span class="text-[9px] uppercase tracking-wider text-slate-500 block mb-1.5">Estadísticas de Mercado (Últimos 5 juegos)</span>
@@ -401,6 +437,9 @@
                                                     <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                                                         @foreach($bet->ai_analysis['h2h'] as $match)
                                                             <div class="p-2 rounded-lg bg-slate-900/50 border border-slate-800/40 text-[10px]">
+                                                                @if(!empty($match['match']))
+                                                                    <div class="text-[8px] font-bold text-indigo-400 uppercase tracking-wider mb-1 opacity-80 truncate">{{ $match['match'] }}</div>
+                                                                @endif
                                                                 <div class="flex justify-between items-center gap-1 font-medium mb-0.5">
                                                                     <span class="text-slate-300 truncate w-[42%]" title="{{ $match['home_team'] ?? '' }}">{{ $match['home_team'] ?? '' }}</span>
                                                                     <span class="font-extrabold text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded text-[9px] shrink-0 min-w-[28px] text-center border border-indigo-500/20">

@@ -54,33 +54,39 @@ class GeminiAnalysisService
             'selecciones' => $selectionsData,
         ];
 
-        $prompt = "Eres un analista experto en apuestas deportivas. Tu tarea es analizar la siguiente apuesta (o parlay combinada) e investigar por internet (utilizando tus capacidades de búsqueda en tiempo real) las probabilidades del mercado elegido basándote en la forma reciente de los equipos (últimos 5 partidos), enfrentamientos previos directos (H2H), lesiones, bajas de última hora y el valor de la cuota.\n\n";
+        $prompt = "Eres un analista experto en apuestas deportivas. Tu tarea es analizar la siguiente apuesta (o parlay combinada) e investigar por internet (utilizando tus capacidades de búsqueda en tiempo real) las probabilidades del mercado elegido basándote en la forma reciente de los equipos (últimos 5 partidos), enfrentamientos previos directos (H2H) de todos los partidos incluidos, lesiones, bajas de última hora y el valor de la cuota.\n\n";
         $prompt .= "Detalles de la apuesta:\n" . json_encode($betDetails, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
-        $prompt .= "Evalúa el nivel de riesgo de la apuesta global (o parlay) y clasifícala estrictamente en uno de estos tres niveles de riesgo en minúsculas:\n";
-        $prompt .= "- 'segura' (baja probabilidad de perder, equipos sólidos, forma excelente)\n";
-        $prompt .= "- 'moderada' (riesgo aceptable, forma inestable pero con valor, o parlay mediano)\n";
-        $prompt .= "- 'improbable' (riesgo muy alto, estadísticas contrarias, muchas bajas o parlay largo)\n\n";
-        $prompt .= "Redacta una justificación de análisis en español que sea sumamente concisa (máximo 4 líneas en total) detallando lo más crucial de tu investigación.\n\n";
-        $prompt .= "Busca además los últimos 3 enfrentamientos directos (H2H) históricos y recientes entre los equipos y devuélvelos de forma estructurada en la propiedad 'h2h' del JSON.\n\n";
-        $prompt .= "Adicionalmente, analiza el mercado específico (`market_name`) y la selección (`selection`) de cada una de las apuestas de la lista. Investiga los datos estadísticos clave de los últimos 5 partidos de los equipos relevantes para ese tipo de mercado (por ejemplo, si el mercado es de goles, busca la cantidad de goles anotados o concedidos en los últimos 5 partidos de cada equipo; si es tiros a puerta o córners, busca la estadística promedio de córners o tiros de cada equipo; si es ganador del partido, busca los resultados específicos). Devuelve este resumen estadístico de los últimos 5 partidos en la propiedad 'stats' del JSON, adaptado al mercado específico.\n\n";
+        $prompt .= "1. Evalúa el nivel de riesgo de la apuesta global (o parlay) y clasifícala estrictamente en uno de estos tres niveles de riesgo en minúsculas: 'segura', 'moderada', 'improbable'.\n";
+        $prompt .= "2. Asigna una nota numérica de confianza del 1 al 100 para la apuesta global/parlay combinada (donde 100 es certeza absoluta y 1 es nula probabilidad) en la propiedad 'score'.\n";
+        $prompt .= "3. Asigna una nota de confianza del 1 al 100 para cada una de las apuestas/selecciones individuales del parlay en la propiedad 'selection_scores' del JSON. Cada objeto de la lista debe tener 'selection_index' (1-based index) y 'score'.\n";
+        $prompt .= "4. Redacta una justificación de análisis en español que sea sumamente concisa (máximo 4 líneas en total) detallando lo más crucial de tu investigación.\n";
+        $prompt .= "5. Busca los últimos enfrentamientos directos (H2H) históricos y recientes para CADA uno de los partidos/selecciones incluidos en la lista (no te limites solo al primero, busca para todos los enfrentamientos del parlay). Devúélvelos estructurados en la propiedad 'h2h' del JSON. Incluye en cada elemento el nombre del partido correspondiente (ej: 'AC Milan vs Cagliari') en la propiedad 'match'.\n";
+        $prompt .= "6. Analiza el mercado específico (`market_name`) y la selección (`selection`) de cada una de las apuestas de la lista. Investiga los datos estadísticos clave de los últimos 5 partidos de los equipos relevantes para ese tipo de mercado (ej: goles promedio si es Over/Under, tiros de esquina, tarjetas, resultados de victorias/derrotas si es 1X2). Devuelve este resumen estadístico de los últimos 5 partidos en la propiedad 'stats' del JSON, adaptado al mercado específico.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"risk\": \"segura|moderada|improbable\",\n";
-        $prompt .= "  \"analysis\": \"Tu justificación concisa en español aquí...\",\n";
+        $prompt .= "  \"score\": 75,\n";
+        $prompt .= "  \"selection_scores\": [\n";
+        $prompt .= "    {\n";
+        $prompt .= "      \"selection_index\": 1,\n";
+        $prompt .= "      \"score\": 82\n";
+        $prompt .= "    }\n";
+        $prompt .= "  ],\n";
         $prompt .= "  \"h2h\": [\n";
         $prompt .= "    {\n";
-        $prompt .= "      \"home_team\": \"Nombre del Equipo Local\",\n";
-        $prompt .= "      \"away_team\": \"Nombre del Equipo Visitante\",\n";
-        $prompt .= "      \"score\": \"3 - 1 (o resultado correspondiente)\",\n";
-        $prompt .= "      \"date\": \"Fecha corta ej: 03 Abr 2024\",\n";
-        $prompt .= "      \"info\": \"Liga/Torneo correspondiente\"\n";
+        $prompt .= "      \"match\": \"AC Milan vs Cagliari\",\n";
+        $prompt .= "      \"home_team\": \"AC Milan\",\n";
+        $prompt .= "      \"away_team\": \"Cagliari\",\n";
+        $prompt .= "      \"score\": \"5 - 1\",\n";
+        $prompt .= "      \"date\": \"11 May 2024\",\n";
+        $prompt .= "      \"info\": \"Serie A\"\n";
         $prompt .= "    }\n";
         $prompt .= "  ],\n";
         $prompt .= "  \"stats\": {\n";
         $prompt .= "    \"market_type\": \"Goles|Corners|Tiros|Ganador|Otro\",\n";
-        $prompt .= "    \"description\": \"Resumen de la tendencia (ej: City promedia 2.5 goles anotados, Villa concede 1.8 goles en sus últimos 5 juegos)\",\n";
-        $prompt .= "    \"home_stats\": \"Estadísticas del equipo local en sus últimos 5 partidos para este mercado\",\n";
-        $prompt .= "    \"away_stats\": \"Estadísticas del equipo visitante en sus últimos 5 partidos para este mercado\"\n";
+        $prompt .= "    \"description\": \"Resumen de la tendencia (ej: City promedia 2.5 goles anotados...)\",\n";
+        $prompt .= "    \"home_stats\": \"Estadísticas locales...\",\n";
+        $prompt .= "    \"away_stats\": \"Estadísticas visitantes...\"\n";
         $prompt .= "  }\n";
         $prompt .= "}";
 
@@ -127,6 +133,8 @@ class GeminiAnalysisService
 
             return [
                 'risk' => strtolower(trim($json['risk'])),
+                'score' => $json['score'] ?? null,
+                'selection_scores' => $json['selection_scores'] ?? [],
                 'analysis' => trim($json['analysis']),
                 'h2h' => $json['h2h'] ?? [],
                 'stats' => $json['stats'] ?? null,
