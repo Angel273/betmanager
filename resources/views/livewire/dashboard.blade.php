@@ -264,7 +264,7 @@
         <!-- Bets List -->
         <div class="space-y-4">
             @forelse($bets as $bet)
-                <div class="p-5 rounded-2xl bg-slate-900/40 border border-slate-800/80 hover:border-slate-800 transition duration-150 relative">
+                <div wire:key="bet-card-{{ $bet->id }}" class="p-5 rounded-2xl bg-slate-900/40 border border-slate-800/80 hover:border-slate-800 transition duration-150 relative">
                     
                     <!-- Top Info row -->
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-3 border-b border-slate-800/40 mb-4">
@@ -350,11 +350,12 @@
                             
                             <!-- AI Analysis Badge or button -->
                             @if($analyzingBetId == $bet->id)
-                                <div class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 text-indigo-400 font-bold uppercase tracking-wider shrink-0 cursor-default">
+                                <div wire:key="ai-loading-{{ $bet->id }}" class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 text-indigo-400 font-bold uppercase tracking-wider shrink-0 cursor-default">
                                     <i class="fa-solid fa-circle-notch animate-spin"></i>
                                     <span>Analizando...</span>
-                                                            @elseif($bet->analyzed_at)
-                                <div class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 cursor-pointer hover:bg-slate-700 transition duration-150 relative"
+                                </div>
+                            @elseif($bet->analyzed_at)
+                                <div wire:key="ai-badge-{{ $bet->id }}" class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 cursor-pointer hover:bg-slate-700 transition duration-150 relative"
                                     title="Ver Análisis de IA"
                                     x-data="{ showAi: false }"
                                     x-on:click="showAi = !showAi">
@@ -489,7 +490,7 @@
                                 </div>
                             @else
                                 <!-- Button to trigger AI analysis -->
-                                <button x-data="{ loading: false }"
+                                <button wire:key="ai-btn-{{ $bet->id }}" x-data="{ loading: false }"
                                     x-on:click="loading = true; $dispatch('analyzeBet', { betId: {{ $bet->id }} })"
                                     :disabled="loading"
                                     class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">

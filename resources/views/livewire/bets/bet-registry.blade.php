@@ -54,7 +54,27 @@
         <div class="xl:col-span-2 space-y-6">
             
             <!-- Auto-fill with Ticket Screenshot -->
-            <div class="glassmorphism rounded-2xl p-6 relative">
+            <div class="glassmorphism rounded-2xl p-6 relative"
+                 x-data="{
+                     init() {
+                         window.addEventListener('paste', e => {
+                             const items = e.clipboardData.items;
+                             for (let i = 0; i < items.length; i++) {
+                                 if (items[i].type.indexOf('image') !== -1) {
+                                     const file = items[i].getAsFile();
+                                     @this.upload('ticketImage', file, 
+                                         (uploadedName) => {
+                                             // success
+                                         }, 
+                                         (error) => {
+                                             // error
+                                         }
+                                     );
+                                 }
+                             }
+                         });
+                     }
+                 }">
                 <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div class="flex items-start gap-3">
@@ -64,7 +84,7 @@
                         <div>
                             <h3 class="text-sm font-bold text-white">Auto-completar con Captura de Ticket</h3>
                             <p class="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                                ¿Tienes una captura de tu ticket de apuestas? Súbela y Gemini extraerá el stake, la cuota y las selecciones automáticamente.
+                                ¿Tienes una captura de tu ticket de apuestas? Selecciona una imagen o presiona <span class="bg-indigo-500/20 text-indigo-300 font-bold px-1.5 py-0.5 rounded border border-indigo-500/30">Ctrl + V</span> en esta página para pegarla desde tu portapapeles. Gemini extraerá los datos automáticamente.
                             </p>
                         </div>
                     </div>
@@ -81,7 +101,7 @@
                 <!-- Livewire Loading Indicator -->
                 <div wire:loading wire:target="ticketImage" class="mt-4 flex items-center gap-2 text-xs text-indigo-400 font-bold uppercase tracking-wider">
                     <i class="fa-solid fa-brain animate-bounce"></i>
-                    <span>Gemini 2.5 Flash está procesando tu ticket...</span>
+                    <span>Gemini 3.1 Flash Lite está procesando tu ticket...</span>
                 </div>
 
                 @error('ticketImage')
