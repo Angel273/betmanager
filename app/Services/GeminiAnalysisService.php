@@ -59,13 +59,14 @@ class GeminiAnalysisService
         $prompt .= "1. Evalúa el nivel de riesgo de la apuesta global (o parlay) y clasifícala estrictamente en uno de estos tres niveles de riesgo en minúsculas: 'segura', 'moderada', 'improbable'.\n";
         $prompt .= "2. Asigna una nota numérica de confianza del 1 al 100 para la apuesta global/parlay combinada (donde 100 es certeza absoluta y 1 es nula probabilidad) en la propiedad 'score'.\n";
         $prompt .= "3. Asigna una nota de confianza del 1 al 100 para cada una de las apuestas/selecciones individuales del parlay en la propiedad 'selection_scores' del JSON. Cada objeto de la lista debe tener 'selection_index' (1-based index) y 'score'.\n";
-        $prompt .= "4. Redacta una justificación de análisis en español que sea sumamente concisa (máximo 4 líneas en total) detallando lo más crucial de tu investigación.\n";
+        $prompt .= "4. Redacta una justificación de análisis en español que sea sumamente concisa (máximo 4 líneas en total) detallando lo más crucial de tu investigación en la propiedad 'analysis' del JSON.\n";
         $prompt .= "5. Busca los últimos enfrentamientos directos (H2H) históricos y recientes para CADA uno de los partidos/selecciones incluidos en la lista (no te limites solo al primero, busca para todos los enfrentamientos del parlay). Devúélvelos estructurados en la propiedad 'h2h' del JSON. Incluye en cada elemento el nombre del partido correspondiente (ej: 'AC Milan vs Cagliari') en la propiedad 'match'.\n";
         $prompt .= "6. Analiza el mercado específico (`market_name`) y la selección (`selection`) de cada una de las apuestas de la lista. Investiga los datos estadísticos clave de los últimos 5 partidos de los equipos relevantes para ese tipo de mercado (ej: goles promedio si es Over/Under, tiros de esquina, tarjetas, resultados de victorias/derrotas si es 1X2). Devuelve este resumen estadístico de los últimos 5 partidos en la propiedad 'stats' del JSON, adaptado al mercado específico.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"risk\": \"segura|moderada|improbable\",\n";
         $prompt .= "  \"score\": 75,\n";
+        $prompt .= "  \"analysis\": \"Justificación concisa del análisis en español (máximo 4 líneas)...\",\n";
         $prompt .= "  \"selection_scores\": [\n";
         $prompt .= "    {\n";
         $prompt .= "      \"selection_index\": 1,\n";
@@ -121,12 +122,12 @@ class GeminiAnalysisService
 
             // Parse response
             $json = json_decode(trim($resultText), true);
-            if (!$json || !isset($json['risk']) || !isset($json['analysis'])) {
+            if (!$json || !isset($json['risk'])) {
                 // Fallback attempt in case the model returned a markdown codeblock
                 $cleaned = preg_replace('/^```(?:json)?|```$/m', '', trim($resultText));
                 $json = json_decode(trim($cleaned), true);
                 
-                if (!$json || !isset($json['risk']) || !isset($json['analysis'])) {
+                if (!$json || !isset($json['risk'])) {
                     throw new Exception('La respuesta de la IA no se pudo parsear como JSON válido.');
                 }
             }
@@ -135,7 +136,7 @@ class GeminiAnalysisService
                 'risk' => strtolower(trim($json['risk'])),
                 'score' => $json['score'] ?? null,
                 'selection_scores' => $json['selection_scores'] ?? [],
-                'analysis' => trim($json['analysis']),
+                'analysis' => trim($json['analysis'] ?? 'Análisis no estructurado.'),
                 'h2h' => $json['h2h'] ?? [],
                 'stats' => $json['stats'] ?? null,
             ];

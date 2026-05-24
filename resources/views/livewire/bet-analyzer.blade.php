@@ -18,7 +18,7 @@
                 
                 <div class="flex items-center justify-center gap-1.5 text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
                     <span class="h-2 w-2 rounded-full bg-indigo-400 animate-ping"></span>
-                    <span>Gemini 2.5 Flash está analizando</span>
+                    <span>Gemini 3.1 Flash Lite está analizando</span>
                 </div>
             </div>
         </div>

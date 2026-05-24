@@ -35,6 +35,10 @@ class BetAnalyzer extends Component
             $this->dispatch('refreshDashboard');
             $this->dispatch('refreshBetPaths'); // Just in case we are on the bet path page
         } catch (Exception $e) {
+            \Log::error('Error en BetAnalyzer al analizar la apuesta: ' . $e->getMessage(), [
+                'exception' => $e,
+                'bet_id' => $betId
+            ]);
             $this->errorMessage = $e->getMessage();
             session()->flash('error', 'Error en el análisis de IA: ' . $e->getMessage());
             
