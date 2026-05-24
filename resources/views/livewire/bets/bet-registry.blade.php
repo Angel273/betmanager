@@ -139,31 +139,49 @@
                         <!-- Team Home (Local) -->
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Equipo Local / A</label>
-                            <select wire:model.live="selections.{{ $index }}.team_home_id" 
-                                @disabled(empty($sel['league_id']))
-                                class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition duration-200 disabled:opacity-50">
-                                <option value="">Selecciona equipo local...</option>
-                                @if(!empty($teams[$index]))
-                                    @foreach($teams[$index] as $team)
-                                        <option value="{{ $team->id }}">{{ $team->name }}</option>
-                                    @endforeach
+                            <div class="flex gap-2">
+                                <select wire:model.live="selections.{{ $index }}.team_home_id" 
+                                    @disabled(empty($sel['league_id']))
+                                    class="flex-1 bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition duration-200 disabled:opacity-50">
+                                    <option value="">Selecciona equipo local...</option>
+                                    @if(!empty($teams[$index]))
+                                        @foreach($teams[$index] as $team)
+                                            <option value="{{ $team->id }}">{{ $team->name }}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                                @if(auth()->user()->is_admin && !empty($sel['league_id']))
+                                    <button type="button" wire:click="openQuickTeamModal({{ $index }}, 'team_home_id')"
+                                        class="px-3 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition duration-150 shrink-0"
+                                        title="Agregar nuevo equipo local">
+                                        <i class="fa-solid fa-plus text-xs"></i>
+                                    </button>
                                 @endif
-                            </select>
+                            </div>
                         </div>
 
                         <!-- Team Away (Visitante) -->
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Equipo Visitante / B</label>
-                            <select wire:model.live="selections.{{ $index }}.team_away_id" 
-                                @disabled(empty($sel['league_id']))
-                                class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition duration-200 disabled:opacity-50">
-                                <option value="">Selecciona equipo visitante...</option>
-                                @if(!empty($teams[$index]))
-                                    @foreach($teams[$index] as $team)
-                                        <option value="{{ $team->id }}">{{ $team->name }}</option>
-                                    @endforeach
+                            <div class="flex gap-2">
+                                <select wire:model.live="selections.{{ $index }}.team_away_id" 
+                                    @disabled(empty($sel['league_id']))
+                                    class="flex-1 bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition duration-200 disabled:opacity-50">
+                                    <option value="">Selecciona equipo visitante...</option>
+                                    @if(!empty($teams[$index]))
+                                        @foreach($teams[$index] as $team)
+                                            <option value="{{ $team->id }}">{{ $team->name }}</option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                                @if(auth()->user()->is_admin && !empty($sel['league_id']))
+                                    <button type="button" wire:click="openQuickTeamModal({{ $index }}, 'team_away_id')"
+                                        class="px-3 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition duration-150 shrink-0"
+                                        title="Agregar nuevo equipo visitante">
+                                        <i class="fa-solid fa-plus text-xs"></i>
+                                    </button>
                                 @endif
-                            </select>
+                            </div>
                         </div>
 
                         <!-- Player (Opcional) -->
@@ -277,4 +295,45 @@
             </div>
         </div>
     </div>
+
+    <!-- Quick Add Team Modal -->
+    @if($showQuickTeamModal)
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="w-full max-w-sm rounded-2xl glassmorphism p-6 relative">
+                <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+
+                <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-5">
+                    <h3 class="text-lg font-bold text-white">Agregar Nuevo Equipo</h3>
+                    <button type="button" wire:click="$set('showQuickTeamModal', false)" class="text-slate-500 hover:text-white">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <form wire:submit.prevent="saveQuickTeam" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Liga / Torneo</label>
+                        <input type="text" readonly value="{{ \App\Models\League::find($quickTeamLeagueId)?->name ?? 'N/A' }}"
+                            class="w-full bg-slate-900/40 border border-slate-800/60 rounded-xl py-3 px-3 text-sm text-slate-500 focus:outline-none cursor-not-allowed">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre del Equipo</label>
+                        <input type="text" wire:model="quickTeamName" placeholder="Ej. Liverpool, Golden State Warriors"
+                            class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-200">
+                        @error('quickTeamName') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-3">
+                        <button type="button" wire:click="$set('showQuickTeamModal', false)"
+                            class="py-2.5 px-4 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition duration-150">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                            class="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition duration-150 shadow-md shadow-indigo-600/10">
+                            Guardar y Seleccionar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 </div>

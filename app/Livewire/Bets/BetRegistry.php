@@ -23,6 +23,13 @@ class BetRegistry extends Component
     public $stake = '';
     public $notes = '';
 
+    // Quick team creation properties
+    public $showQuickTeamModal = false;
+    public $quickTeamName = '';
+    public $quickTeamLeagueId = null;
+    public $quickTeamSelectionIndex = null;
+    public $quickTeamField = '';
+
     // Linked Bet Path properties
     public $bet_path_id = null;
     public $bet_path_step = null;
@@ -250,6 +257,59 @@ class BetRegistry extends Component
         }
 
         return redirect()->route('dashboard');
+    }
+
+    public function openQuickTeamModal($index, $field)
+    {
+        abort_unless(auth()->user()->is_admin, 403);
+
+        $leagueId = $this->selections[$index]['league_id'] ?? null;
+        if (!$leagueId) {
+            session()->flash('error', 'Por favor selecciona primero una liga antes de agregar un equipo.');
+            return;
+        }
+
+        $this->quickTeamLeagueId = $leagueId;
+        $this->quickTeamSelectionIndex = $index;
+        $this->quickTeamField = $field;
+        $this->quickTeamName = '';
+        $this->showQuickTeamModal = true;
+    }
+
+    public function saveQuickTeam()
+    {
+        abort_unless(auth()->user()->is_admin, 403);
+
+        $this->validate([
+            'quickTeamName' => 'required|string|max:100',
+        ], [
+            'quickTeamName.required' => 'El nombre del equipo es obligatorio.',
+        ]);
+
+        // Double check that it doesn't already exist in this league to avoid duplicates
+        $existingTeam = Team::where('league_id', $this->quickTeamLeagueId)
+            ->where('name', 'like', trim($this->quickTeamName))
+            ->first();
+
+        if ($existingTeam) {
+            $team = $existingTeam;
+        } else {
+            $team = Team::create([
+                'name' => trim($this->quickTeamName),
+                'league_id' => $this->quickTeamLeagueId,
+            ]);
+        }
+
+        // Refresh dropdown cache for this selection index
+        $this->teams[$this->quickTeamSelectionIndex] = Team::where('league_id', $this->quickTeamLeagueId)
+            ->orderBy('name')
+            ->get();
+
+        // Auto-select the team ID
+        $this->selections[$this->quickTeamSelectionIndex][$this->quickTeamField] = $team->id;
+
+        $this->showQuickTeamModal = false;
+        session()->flash('success', 'Equipo "' . $team->name . '" creado y seleccionado con éxito.');
     }
 
     public function updatedTicketImage()
