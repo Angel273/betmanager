@@ -1,7 +1,7 @@
 [phases.prestart]
 cmds = [
-  'mkdir -p /app/database',
-  'touch /app/database/database.sqlite',
+  'mkdir -p /app/storage/db',
+  'touch /app/storage/db/database.sqlite',
   'php artisan migrate --force',
   'php artisan config:cache',
   'php artisan route:cache',
