@@ -271,10 +271,11 @@ class GeminiAnalysisService
         }
 
         $currentDate = now()->format('d M Y');
+        $currentTime = now()->utc()->format('H:i');
         $sportFilter = $sport ? "Deporte específico: {$sport}" : "Cualquier deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo, Tenis, etc.)";
         $oddsFilter = ($minOdds || $maxOdds) ? "Cuota entre " . ($minOdds ?? 1.01) . " y " . ($maxOdds ?? 10.00) : "Cualquier cuota";
 
-        $prompt = "Eres un buscador de apuestas experto impulsado por IA. La fecha actual es {$currentDate}. Tu tarea es buscar partidos reales programados para hoy, mañana o los próximos 3 días en el año 2026. Prioriza partidos de este año 2026 y encuentra 3 apuestas con alta probabilidad que cumplan con los siguientes criterios:\n\n";
+        $prompt = "Eres un buscador de apuestas experto impulsado por IA. La fecha y hora actuales (UTC) son: {$currentDate} a las {$currentTime} UTC. Tu tarea es buscar partidos reales programados para HOY (incluyendo partidos de hoy cuya hora de inicio sea POSTERIOR a las {$currentTime} UTC, es decir que aún no han comenzado), mañana o los próximos 3 días. Prioriza siempre los partidos más próximos y encuentra 3 apuestas con alta probabilidad.\n\n";
         $prompt .= "- {$sportFilter}\n";
         $prompt .= "- Nivel de riesgo sugerido: '{$risk}' (puede ser 'segura', 'moderada' o 'improbable')\n";
         $prompt .= "- Rango de cuotas: {$oddsFilter}\n\n";
@@ -282,7 +283,7 @@ class GeminiAnalysisService
         $prompt .= "- Para competiciones de CLUBES: únicamente primera división (ej: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, MLS, Liga MX, etc.) o segunda división (ej: Championship, Serie B, Segunda División, etc.). Excluye absolutamente cualquier liga de tercera división o inferior.\n";
         $prompt .= "- Para competiciones INTERNACIONALES/SELECCIONES: únicamente categoría absoluta (senior) o Sub-21 (U21) como máximo. Excluye Sub-20, Sub-17, Sub-15 y cualquier categoría juvenil inferior a U21.\n";
         $prompt .= "- Excluye también ligas regionales, amateur, reservas, filiales y competiciones universitarias.\n\n";
-        $prompt .= "Investiga en internet utilizando tu capacidad de búsqueda web en tiempo real. Busca mercados reales (Ganador, Ambos Anotan, Over/Under de goles/puntos) y cuotas reales de casas de apuestas. Incluye siempre la hora de inicio del partido.\n\n";
+        $prompt .= "Investiga en internet utilizando tu capacidad de búsqueda web en tiempo real. Busca mercados reales (Ganador, Ambos Anotan, Over/Under de goles/puntos) y cuotas reales de casas de apuestas. Incluye siempre la hora de inicio del partido en UTC.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"recommendations\": [\n";
