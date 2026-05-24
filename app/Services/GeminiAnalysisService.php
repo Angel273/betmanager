@@ -14,12 +14,12 @@ class GeminiAnalysisService
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY');
-        // Default to gemini-2.5-flash as requested
-        $this->model = env('GEMINI_MODEL', 'gemini-2.5-flash');
+        // Default to gemini-3.1-flash-lite as requested
+        $this->model = env('GEMINI_MODEL', 'gemini-3.1-flash-lite');
     }
 
     /**
-     * Analyze a bet using Gemini 2.5 Flash.
+     * Analyze a bet using Gemini 3.1 Flash-Lite.
      *
      * @param Bet $bet
      * @return array
@@ -138,7 +138,7 @@ class GeminiAnalysisService
     }
 
     /**
-     * Parse a betting ticket image using Gemini 2.5 Flash.
+     * Parse a betting ticket image using Gemini 3.1 Flash-Lite.
      *
      * @param string $imagePath
      * @return array
