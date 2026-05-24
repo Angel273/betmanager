@@ -37,6 +37,10 @@ class BetAnalyzer extends Component
         } catch (Exception $e) {
             $this->errorMessage = $e->getMessage();
             session()->flash('error', 'Error en el análisis de IA: ' . $e->getMessage());
+            
+            // Dispatch refresh event on failure too, to clear loaders in parent views
+            $this->dispatch('refreshDashboard');
+            $this->dispatch('refreshBetPaths');
         } finally {
             $this->analyzingId = null;
         }

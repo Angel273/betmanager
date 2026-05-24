@@ -470,12 +470,8 @@
                                     x-on:click="loading = true; $dispatch('analyzeBet', { betId: {{ $bet->id }} })"
                                     :disabled="loading"
                                     class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <template x-if="!loading">
-                                        <i class="fa-solid fa-robot text-amber-400"></i>
-                                    </template>
-                                    <template x-if="loading">
-                                        <i class="fa-solid fa-circle-notch animate-spin text-indigo-400"></i>
-                                    </template>
+                                    <i x-show="!loading" class="fa-solid fa-robot text-amber-400"></i>
+                                    <i x-show="loading" class="fa-solid fa-circle-notch animate-spin text-indigo-400" x-cloak></i>
                                     <span x-text="loading ? 'Analizando...' : 'Analizar Apuesta'"></span>
                                 </button>
                             @endif
