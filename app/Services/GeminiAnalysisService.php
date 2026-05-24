@@ -14,12 +14,12 @@ class GeminiAnalysisService
     public function __construct()
     {
         $this->apiKey = env('GEMINI_API_KEY');
-        // Default to gemini-3.1-flash-lite as requested
-        $this->model = env('GEMINI_MODEL', 'gemini-3.1-flash-lite');
+        // gemini-2.0-flash supports Google Search grounding on paid billing accounts
+        $this->model = env('GEMINI_MODEL', 'gemini-2.0-flash');
     }
 
     /**
-     * Analyze a bet using Gemini 3.1 Flash-Lite.
+     * Analyze a bet using the configured Gemini model.
      *
      * @param Bet $bet
      * @return array
@@ -301,7 +301,9 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $payload = [
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -315,31 +317,11 @@ class GeminiAnalysisService
                 'generationConfig' => [
                     'responseMimeType' => 'application/json'
                 ]
-            ];
-
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json'
-            ])->post($url, $payload);
+            ]);
 
             if ($response->failed()) {
                 $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                
-                // Fallback if search grounding is restricted by quota or billing
-                if (str_contains(strtolower($errorMsg), 'quota') || str_contains(strtolower($errorMsg), 'billing') || str_contains(strtolower($errorMsg), 'limit') || str_contains(strtolower($errorMsg), 'free')) {
-                    \Log::warning('Search Grounding failed due to quota/billing. Retrying without Google Search tool.', ['error' => $errorMsg]);
-                    
-                    unset($payload['tools']);
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json'
-                    ])->post($url, $payload);
-                    
-                    if ($response->failed()) {
-                        $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                        throw new Exception($errorMsg);
-                    }
-                } else {
-                    throw new Exception($errorMsg);
-                }
+                throw new Exception($errorMsg);
             }
 
             $resultText = $response->json('candidates.0.content.parts.0.text');
@@ -407,7 +389,9 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $payload = [
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, [
                 'contents' => [
                     [
                         'parts' => [
@@ -421,31 +405,11 @@ class GeminiAnalysisService
                 'generationConfig' => [
                     'responseMimeType' => 'application/json'
                 ]
-            ];
-
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json'
-            ])->post($url, $payload);
+            ]);
 
             if ($response->failed()) {
                 $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                
-                // Fallback if search grounding is restricted by quota or billing
-                if (str_contains(strtolower($errorMsg), 'quota') || str_contains(strtolower($errorMsg), 'billing') || str_contains(strtolower($errorMsg), 'limit') || str_contains(strtolower($errorMsg), 'free')) {
-                    \Log::warning('Bet Path search grounding failed due to quota/billing. Retrying without Google Search tool.', ['error' => $errorMsg]);
-                    
-                    unset($payload['tools']);
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json'
-                    ])->post($url, $payload);
-                    
-                    if ($response->failed()) {
-                        $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
-                        throw new Exception($errorMsg);
-                    }
-                } else {
-                    throw new Exception($errorMsg);
-                }
+                throw new Exception($errorMsg);
             }
 
             $resultText = $response->json('candidates.0.content.parts.0.text');

@@ -254,53 +254,5 @@ class BetAnalysisTest extends TestCase
         $this->assertCount(1, $result['selections']);
         $this->assertEquals('Atletico Madrid', $result['selections'][0]['selection']);
     }
-
-    public function test_suggest_bets_fallback_on_quota_error()
-    {
-        $_ENV['GEMINI_API_KEY'] = 'test-api-key';
-        $_SERVER['GEMINI_API_KEY'] = 'test-api-key';
-        putenv('GEMINI_API_KEY=test-api-key');
-
-        Http::fake([
-            'https://generativelanguage.googleapis.com/*' => Http::sequence()
-                ->push(['error' => ['message' => 'You exceeded your current quota, please check your plan']], 429)
-                ->push([
-                    'candidates' => [
-                        [
-                            'content' => [
-                                'parts' => [
-                                    [
-                                        'text' => json_encode([
-                                            'recommendations' => [
-                                                [
-                                                    'sport' => 'Fútbol',
-                                                    'league' => 'La Liga',
-                                                    'home_team' => 'Real Madrid',
-                                                    'away_team' => 'Barcelona',
-                                                    'match_date' => '2026-05-25',
-                                                    'market_name' => 'Ganador',
-                                                    'selection' => 'Real Madrid',
-                                                    'odds' => 1.85,
-                                                    'confidence_score' => 85,
-                                                    'risk' => 'segura',
-                                                    'analysis' => 'Fallback successful.'
-                                                ]
-                                            ]
-                                        ])
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ], 200)
-        ]);
-
-        $service = new GeminiAnalysisService();
-        $suggestions = $service->suggestBets('Fútbol', 'segura', 1.5, 2.0);
-
-        $this->assertCount(1, $suggestions);
-        $this->assertEquals('Real Madrid', $suggestions[0]['home_team']);
-        $this->assertEquals('Fallback successful.', $suggestions[0]['analysis']);
-    }
 }
 
