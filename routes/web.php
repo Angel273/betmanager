@@ -34,12 +34,4 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/catalog', CatalogManager::class)->name('admin.catalog');
 });
 
-// Temporary Seeding Route (Visit once, then we can delete it)
-Route::get('/setup-database-seed', function () {
-    try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        return 'Base de datos sembrada con éxito! Detalle:<br><pre>' . \Illuminate\Support\Facades\Artisan::output() . '</pre>';
-    } catch (\Exception $e) {
-        return 'Error al sembrar la base de datos: ' . $e->getMessage();
-    }
-});
+

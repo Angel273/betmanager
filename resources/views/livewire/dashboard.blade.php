@@ -366,15 +366,39 @@
                                             </span>
                                             <span class="text-[9px] text-slate-500">Analizado: {{ $bet->analyzed_at->format('d M') }}</span>
                                         </div>
-                                        <div class="space-y-2">
+                                        <div class="space-y-3">
                                             <div>
                                                 <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Evaluación de Riesgo</span>
-                                                <span class="text-sm font-black uppercase text-amber-400">{{ $bet->ai_analysis['risk'] ?? 'Moderado' }}</span>
+                                                <span class="text-sm font-black uppercase {{ ($bet->ai_analysis['risk'] ?? '') === 'segura' ? 'text-emerald-400' : (($bet->ai_analysis['risk'] ?? '') === 'moderada' ? 'text-amber-400' : 'text-red-400') }}">
+                                                    {{ $bet->ai_analysis['risk'] ?? 'Moderado' }}
+                                                </span>
                                             </div>
                                             <div>
                                                 <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Justificación / Forma</span>
                                                 <p class="text-[11px] leading-relaxed text-slate-300">{{ $bet->ai_analysis['analysis'] ?? 'Análisis no estructurado.' }}</p>
                                             </div>
+                                            @if(isset($bet->ai_analysis['h2h']) && is_array($bet->ai_analysis['h2h']) && count($bet->ai_analysis['h2h']) > 0)
+                                                <div class="pt-2 border-t border-slate-800/60">
+                                                    <span class="text-[9px] uppercase tracking-wider text-slate-500 block mb-1.5">Enfrentamientos Directos (H2H)</span>
+                                                    <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                                        @foreach($bet->ai_analysis['h2h'] as $match)
+                                                            <div class="p-2 rounded-lg bg-slate-900/50 border border-slate-800/40 text-[10px]">
+                                                                <div class="flex justify-between items-center gap-1 font-medium mb-0.5">
+                                                                    <span class="text-slate-300 truncate w-[42%]" title="{{ $match['home_team'] ?? '' }}">{{ $match['home_team'] ?? '' }}</span>
+                                                                    <span class="font-extrabold text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded text-[9px] shrink-0 min-w-[28px] text-center border border-indigo-500/20">
+                                                                        {{ $match['score'] ?? 'vs' }}
+                                                                    </span>
+                                                                    <span class="text-slate-300 truncate w-[42%] text-right" title="{{ $match['away_team'] ?? '' }}">{{ $match['away_team'] ?? '' }}</span>
+                                                                </div>
+                                                                <div class="flex justify-between items-center text-[8px] text-slate-500">
+                                                                    <span>{{ $match['info'] ?? '' }}</span>
+                                                                    <span>{{ $match['date'] ?? '' }}</span>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

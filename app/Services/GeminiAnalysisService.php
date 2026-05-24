@@ -54,17 +54,27 @@ class GeminiAnalysisService
             'selecciones' => $selectionsData,
         ];
 
-        $prompt = "Eres un analista experto en apuestas deportivas. Tu tarea es analizar la siguiente apuesta (o parlay combinada) e investigar por internet (utilizando tus capacidades de búsqueda en tiempo real) las probabilidades del mercado elegido basándote en la forma reciente de los equipos/jugadores (últimos 5 partidos), enfrentamientos previos directos (H2H), lesiones, bajas de última hora y el valor de la cuota.\n\n";
+        $prompt = "Eres un analista experto en apuestas deportivas. Tu tarea es analizar la siguiente apuesta (o parlay combinada) e investigar por internet (utilizando tus capacidades de búsqueda en tiempo real) las probabilidades del mercado elegido basándote en la forma reciente de los equipos (últimos 5 partidos), enfrentamientos previos directos (H2H), lesiones, bajas de última hora y el valor de la cuota.\n\n";
         $prompt .= "Detalles de la apuesta:\n" . json_encode($betDetails, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n";
         $prompt .= "Evalúa el nivel de riesgo de la apuesta global (o parlay) y clasifícala estrictamente en uno de estos tres niveles de riesgo en minúsculas:\n";
         $prompt .= "- 'segura' (baja probabilidad de perder, equipos sólidos, forma excelente)\n";
         $prompt .= "- 'moderada' (riesgo aceptable, forma inestable pero con valor, o parlay mediano)\n";
         $prompt .= "- 'improbable' (riesgo muy alto, estadísticas contrarias, muchas bajas o parlay largo)\n\n";
         $prompt .= "Redacta una justificación de análisis en español que sea sumamente concisa (máximo 4 líneas en total) detallando lo más crucial de tu investigación.\n\n";
+        $prompt .= "Busca además los últimos 3 enfrentamientos directos (H2H) históricos y recientes entre los equipos y devuélvelos de forma estructurada en la propiedad 'h2h' del JSON.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"risk\": \"segura|moderada|improbable\",\n";
-        $prompt .= "  \"analysis\": \"Tu justificación concisa en español aquí...\"\n";
+        $prompt .= "  \"analysis\": \"Tu justificación concisa en español aquí...\",\n";
+        $prompt .= "  \"h2h\": [\n";
+        $prompt .= "    {\n";
+        $prompt .= "      \"home_team\": \"Nombre del Equipo Local\",\n";
+        $prompt .= "      \"away_team\": \"Nombre del Equipo Visitante\",\n";
+        $prompt .= "      \"score\": \"3 - 1 (o resultado correspondiente)\",\n";
+        $prompt .= "      \"date\": \"Fecha corta ej: 03 Abr 2024\",\n";
+        $prompt .= "      \"info\": \"Liga/Torneo correspondiente\"\n";
+        $prompt .= "    }\n";
+        $prompt .= "  ]\n";
         $prompt .= "}";
 
         // Call Gemini API
@@ -111,6 +121,7 @@ class GeminiAnalysisService
             return [
                 'risk' => strtolower(trim($json['risk'])),
                 'analysis' => trim($json['analysis']),
+                'h2h' => $json['h2h'] ?? [],
             ];
 
         } catch (Exception $e) {
