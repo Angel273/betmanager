@@ -14,11 +14,21 @@ class AppServiceProvider extends ServiceProvider
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        // Automatically create SQLite database file if it does not exist
+        $dbConnection = config('database.default');
+        if ($dbConnection === 'sqlite') {
+            $dbPath = config('database.connections.sqlite.database');
+            if ($dbPath && $dbPath !== ':memory:') {
+                if (!file_exists($dbPath)) {
+                    $dir = dirname($dbPath);
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+                    touch($dbPath);
+                }
+            }
+        }
     }
 }
