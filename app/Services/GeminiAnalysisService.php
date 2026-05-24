@@ -264,7 +264,7 @@ class GeminiAnalysisService
      * @return array
      * @throws Exception
      */
-    public function suggestBets(?string $sport = null, string $risk = 'segura', ?float $minOdds = null, ?float $maxOdds = null): array
+    public function suggestBets(?string $sport = null, string $risk = 'segura', ?float $minOdds = null, ?float $maxOdds = null, int $timeRangeHours = 24, int $resultCount = 3): array
     {
         if (empty($this->apiKey) || $this->apiKey === 'your-gemini-api-key') {
             throw new Exception('La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
@@ -272,10 +272,16 @@ class GeminiAnalysisService
 
         $currentDate = now()->format('d M Y');
         $currentTime = now()->utc()->format('H:i');
-        $sportFilter = $sport ? "Deporte específico: {$sport}" : "Cualquier deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo, Tenis, etc.)";
-        $oddsFilter = ($minOdds || $maxOdds) ? "Cuota entre " . ($minOdds ?? 1.01) . " y " . ($maxOdds ?? 10.00) : "Cualquier cuota";
+        $cutoffTime  = now()->utc()->addHours($timeRangeHours)->format('H:i');
+        $cutoffDate  = now()->utc()->addHours($timeRangeHours)->format('d M Y');
+        $windowLabel = $timeRangeHours <= 24
+            ? "las próximas {$timeRangeHours} horas (hasta las {$cutoffTime} UTC del {$cutoffDate})"
+            : "los próximos " . round($timeRangeHours / 24, 1) . " días (hasta el {$cutoffDate} a las {$cutoffTime} UTC)";
 
-        $prompt = "Eres un buscador de apuestas experto impulsado por IA. La fecha y hora actuales (UTC) son: {$currentDate} a las {$currentTime} UTC. Tu tarea es buscar partidos reales programados para HOY (incluyendo partidos de hoy cuya hora de inicio sea POSTERIOR a las {$currentTime} UTC, es decir que aún no han comenzado), mañana o los próximos 3 días. Prioriza siempre los partidos más próximos y encuentra 3 apuestas con alta probabilidad.\n\n";
+        $sportFilter = $sport ? "Deporte específico: {$sport}" : "Cualquier deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo, Tenis, etc.)";
+        $oddsFilter  = ($minOdds || $maxOdds) ? "Cuota entre " . ($minOdds ?? 1.01) . " y " . ($maxOdds ?? 10.00) : "Cualquier cuota";
+
+        $prompt = "Eres un buscador de apuestas experto impulsado por IA. La fecha y hora actuales (UTC) son: {$currentDate} a las {$currentTime} UTC. Tu tarea es buscar exactamente {$resultCount} apuestas reales de alta probabilidad en partidos programados dentro de {$windowLabel}. Incluye partidos de HOY cuya hora de inicio sea posterior a las {$currentTime} UTC (aún no han comenzado).\n\n";
         $prompt .= "- {$sportFilter}\n";
         $prompt .= "- Nivel de riesgo sugerido: '{$risk}' (puede ser 'segura', 'moderada' o 'improbable')\n";
         $prompt .= "- Rango de cuotas: {$oddsFilter}\n\n";
