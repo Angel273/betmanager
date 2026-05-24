@@ -30,5 +30,10 @@ class AppServiceProvider extends ServiceProvider
                 }
             }
         }
+
+        // Force HTTPS in production to avoid Mixed Content CSS/JS blocks
+        if (config('app.env') === 'production') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
     }
 }
