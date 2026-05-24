@@ -342,8 +342,13 @@
                         <div class="flex items-center gap-2 self-stretch sm:self-auto justify-end">
                             
                             <!-- AI Analysis Badge or button -->
-                            @if($bet->analyzed_at)
-                                <div class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 cursor-pointer hover:bg-slate-700 transition duration-150"
+                            @if($analyzingBetId == $bet->id)
+                                <div class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 text-indigo-400 font-bold uppercase tracking-wider shrink-0 cursor-default">
+                                    <i class="fa-solid fa-circle-notch animate-spin"></i>
+                                    <span>Analizando...</span>
+                                </div>
+                            @elseif($bet->analyzed_at)
+                                <div class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 cursor-pointer hover:bg-slate-700 transition duration-150 relative"
                                     title="Ver Análisis de IA"
                                     x-data="{ showAi: false }"
                                     x-on:click="showAi = !showAi">
@@ -358,8 +363,8 @@
                                         @endif
                                     </span>
                                     
-                                    <!-- Popover details -->
-                                    <div x-show="showAi" x-cloak class="absolute bottom-12 right-0 w-80 p-4 rounded-xl glassmorphism border border-indigo-500/20 shadow-2xl z-30 text-left text-xs text-slate-200 cursor-default" x-on:click.stop>
+                                    <!-- Popover details (bg-slate-950 solid background to prevent bleed-through text readability issue) -->
+                                    <div x-show="showAi" x-cloak class="absolute bottom-12 right-0 w-80 p-4 rounded-xl bg-slate-950 border border-indigo-500/30 shadow-2xl z-40 text-left text-xs text-slate-200 cursor-default" x-on:click.stop>
                                         <div class="flex justify-between items-center pb-2 border-b border-slate-800 mb-2">
                                             <span class="font-bold text-white flex items-center gap-1.5">
                                                 <i class="fa-solid fa-robot text-amber-400"></i> Análisis IA (Gemini)
@@ -461,10 +466,17 @@
                                 </div>
                             @else
                                 <!-- Button to trigger AI analysis -->
-                                <button wire:click="$dispatch('analyzeBet', { betId: {{ $bet->id }} })"
-                                    class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-robot text-amber-400"></i>
-                                    <span>Analizar Apuesta</span>
+                                <button x-data="{ loading: false }"
+                                    x-on:click="loading = true; $dispatch('analyzeBet', { betId: {{ $bet->id }} })"
+                                    :disabled="loading"
+                                    class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <template x-if="!loading">
+                                        <i class="fa-solid fa-robot text-amber-400"></i>
+                                    </template>
+                                    <template x-if="loading">
+                                        <i class="fa-solid fa-circle-notch animate-spin text-indigo-400"></i>
+                                    </template>
+                                    <span x-text="loading ? 'Analizando...' : 'Analizar Apuesta'"></span>
                                 </button>
                             @endif
 

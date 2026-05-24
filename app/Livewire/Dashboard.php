@@ -12,17 +12,25 @@ class Dashboard extends Component
 {
     use WithPagination;
 
-    #[On('refreshDashboard')]
-    public function refresh()
-    {
-        // Re-renders the component when AI analysis finishes
-    }
-
     public $filterStatus = '';
     public $filterSport = '';
     public $showSettleModal = false;
     public $selectedBetId = null;
     public $customPayout = '';
+    public $analyzingBetId = null;
+
+    #[On('analyzeBet')]
+    public function setAnalyzingBet($betId)
+    {
+        $this->analyzingBetId = $betId;
+    }
+
+    #[On('refreshDashboard')]
+    public function refresh()
+    {
+        $this->analyzingBetId = null;
+        // Re-renders the component when AI analysis finishes
+    }
 
     public function mount()
     {
