@@ -377,6 +377,24 @@
                                                 <span class="text-[9px] uppercase tracking-wider text-slate-500 block">Justificación / Forma</span>
                                                 <p class="text-[11px] leading-relaxed text-slate-300">{{ $bet->ai_analysis['analysis'] ?? 'Análisis no estructurado.' }}</p>
                                             </div>
+                                            @if(isset($bet->ai_analysis['stats']) && is_array($bet->ai_analysis['stats']))
+                                                <div class="pt-2 border-t border-slate-800/60">
+                                                    <span class="text-[9px] uppercase tracking-wider text-slate-500 block mb-1.5">Estadísticas de Mercado (Últimos 5 juegos)</span>
+                                                    @if(!empty($bet->ai_analysis['stats']['description']))
+                                                        <p class="text-[10px] text-slate-400 leading-snug mb-2 italic">{{ $bet->ai_analysis['stats']['description'] }}</p>
+                                                    @endif
+                                                    <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                                        <div class="p-2 rounded bg-slate-900/40 border border-slate-800/40">
+                                                            <span class="text-[8px] font-bold text-indigo-400 uppercase tracking-wider block mb-0.5">Local</span>
+                                                            <span class="text-slate-300 leading-tight block">{{ $bet->ai_analysis['stats']['home_stats'] ?? 'Sin datos' }}</span>
+                                                        </div>
+                                                        <div class="p-2 rounded bg-slate-900/40 border border-slate-800/40">
+                                                            <span class="text-[8px] font-bold text-indigo-400 uppercase tracking-wider block mb-0.5">Visitante</span>
+                                                            <span class="text-slate-300 leading-tight block">{{ $bet->ai_analysis['stats']['away_stats'] ?? 'Sin datos' }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endif
                                             @if(isset($bet->ai_analysis['h2h']) && is_array($bet->ai_analysis['h2h']) && count($bet->ai_analysis['h2h']) > 0)
                                                 <div class="pt-2 border-t border-slate-800/60">
                                                     <span class="text-[9px] uppercase tracking-wider text-slate-500 block mb-1.5">Enfrentamientos Directos (H2H)</span>

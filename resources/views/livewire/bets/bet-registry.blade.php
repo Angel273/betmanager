@@ -19,6 +19,20 @@
         </div>
     </div>
 
+    <!-- Alert Messages -->
+    @if (session()->has('success'))
+        <div class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex gap-2 items-center">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>{{ session('success') }}</span>
+        </div>
+    @endif
+    @if (session()->has('error'))
+        <div class="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex gap-2 items-center">
+            <i class="fa-solid fa-circle-xmark text-red-400"></i>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+
     <!-- Alert for Bet Path -->
     @if($bet_path_id)
         <div class="mb-6 p-4 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-300 text-sm flex items-center justify-between">
@@ -38,6 +52,39 @@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <!-- FORM LEFT COLUMN: SELECTIONS -->
         <div class="xl:col-span-2 space-y-6">
+            
+            <!-- Auto-fill with Ticket Screenshot -->
+            <div class="glassmorphism rounded-2xl p-6 relative">
+                <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg shrink-0 border border-amber-500/20">
+                            <i class="fa-solid fa-robot animate-pulse"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Auto-completar con Captura de Ticket</h3>
+                            <p class="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                                ¿Tienes una captura de tu ticket de apuestas? Súbela y Gemini extraerá el stake, la cuota y las selecciones automáticamente.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="relative shrink-0 self-start sm:self-auto">
+                        <input type="file" wire:model="ticketImage" id="ticketImage" class="hidden" accept="image/*" />
+                        <label for="ticketImage" class="py-2.5 px-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-300 hover:text-white text-xs font-bold transition duration-150 cursor-pointer flex items-center gap-2">
+                            <i class="fa-solid fa-image text-indigo-400"></i>
+                            <span>Seleccionar Imagen</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Livewire Loading Indicator -->
+                <div wire:loading wire:target="ticketImage" class="mt-4 flex items-center gap-2 text-xs text-indigo-400 font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-brain animate-bounce"></i>
+                    <span>Gemini 2.5 Flash está procesando tu ticket...</span>
+                </div>
+            </div>
+
             @foreach($selections as $index => $sel)
                 <div class="glassmorphism rounded-2xl p-6 relative">
                     <!-- Glow Border -->

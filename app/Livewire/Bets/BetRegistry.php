@@ -11,9 +11,14 @@ use App\Models\League;
 use App\Models\Team;
 use App\Models\Player;
 use Livewire\Component;
+use Livewire\WithFileUploads;
+use App\Services\GeminiAnalysisService;
 
 class BetRegistry extends Component
 {
+    use WithFileUploads;
+
+    public $ticketImage;
     public $type = 'single'; // single, parlay
     public $stake = '';
     public $notes = '';
@@ -245,6 +250,113 @@ class BetRegistry extends Component
         }
 
         return redirect()->route('dashboard');
+    }
+
+    public function updatedTicketImage()
+    {
+        $this->validate([
+            'ticketImage' => 'image|max:4096', // Max 4MB
+        ]);
+
+        try {
+            $service = new GeminiAnalysisService();
+            $parsedData = $service->parseTicketImage($this->ticketImage->getRealPath());
+
+            // 1. Set global ticket properties if extracted
+            if (isset($parsedData['stake']) && is_numeric($parsedData['stake'])) {
+                $this->stake = floatval($parsedData['stake']);
+            }
+            if (isset($parsedData['type']) && in_array($parsedData['type'], ['single', 'parlay'])) {
+                $this->type = $parsedData['type'];
+            }
+
+            // 2. Clear current selections and populate with parsed ones
+            $this->selections = [];
+            $this->leagues = [];
+            $this->teams = [];
+            $this->players = [];
+
+            if (isset($parsedData['selections']) && is_array($parsedData['selections'])) {
+                foreach ($parsedData['selections'] as $index => $parsedSel) {
+                    $sportId = '';
+                    $leagueId = '';
+                    $teamHomeId = '';
+                    $teamAwayId = '';
+
+                    // Match Sport
+                    if (!empty($parsedSel['sport'])) {
+                        $sport = Sport::where('name', 'like', '%' . $parsedSel['sport'] . '%')->first();
+                        if ($sport) {
+                            $sportId = $sport->id;
+                        }
+                    }
+
+                    // Match Teams and Leagues (Only if sport was matched)
+                    if ($sportId) {
+                        // Let's load the leagues for this sport to help in matching
+                        $this->leagues[$index] = League::where('sport_id', $sportId)->get();
+
+                        // Try to find the teams in our DB
+                        $homeTeam = null;
+                        $awayTeam = null;
+
+                        if (!empty($parsedSel['home_team'])) {
+                            $homeTeam = Team::where('name', 'like', '%' . $parsedSel['home_team'] . '%')
+                                ->whereHas('league', function ($q) use ($sportId) {
+                                    $q->where('sport_id', $sportId);
+                                })->first();
+                        }
+
+                        if (!empty($parsedSel['away_team'])) {
+                            $awayTeam = Team::where('name', 'like', '%' . $parsedSel['away_team'] . '%')
+                                ->whereHas('league', function ($q) use ($sportId) {
+                                    $q->where('sport_id', $sportId);
+                                })->first();
+                        }
+
+                        if ($homeTeam) {
+                            $teamHomeId = $homeTeam->id;
+                            $leagueId = $homeTeam->league_id;
+                        }
+                        if ($awayTeam) {
+                            $teamAwayId = $awayTeam->id;
+                            if (!$leagueId) {
+                                $leagueId = $awayTeam->league_id;
+                            }
+                        }
+
+                        // Load select lists for this selection
+                        if ($leagueId) {
+                            $this->teams[$index] = Team::where('league_id', $leagueId)->orderBy('name')->get();
+                        } else {
+                            $this->teams[$index] = [];
+                        }
+                    } else {
+                        $this->leagues[$index] = [];
+                        $this->teams[$index] = [];
+                    }
+
+                    $this->players[$index] = [];
+
+                    $this->selections[] = [
+                        'sport_id' => $sportId,
+                        'league_id' => $leagueId,
+                        'team_home_id' => $teamHomeId,
+                        'team_away_id' => $teamAwayId,
+                        'player_id' => '',
+                        'market_name' => $parsedSel['market_name'] ?? '',
+                        'selection' => $parsedSel['selection'] ?? '',
+                        'odds' => $parsedSel['odds'] ?? '',
+                    ];
+                }
+            }
+
+            session()->flash('success', 'Ticket de apuestas escaneado y procesado con éxito por Gemini. Por favor revisa los datos antes de guardar.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Error al escanear el ticket: ' . $e->getMessage());
+        } finally {
+            $this->ticketImage = null; // Reset file input
+        }
     }
 
     public function render()
