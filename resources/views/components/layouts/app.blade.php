@@ -58,23 +58,29 @@
 <body class="h-full antialiased selection:bg-indigo-500 selection:text-white overflow-x-hidden">
 
     @auth
-        <div class="min-h-screen flex flex-col md:flex-row bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-950/20 via-slate-950 to-slate-950">
+        <div x-data="{ mobileMenuOpen: false }" class="min-h-screen flex flex-col md:flex-row bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-950/20 via-slate-950 to-slate-950">
             <!-- Sidebar -->
             <aside class="w-full md:w-64 glassmorphism border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between shrink-0">
                 <div>
-                    <!-- Logo / Brand -->
-                    <div class="p-6 flex items-center gap-3 border-b border-slate-800/60">
-                        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-                            <i class="fa-solid fa-dice-d20 text-lg"></i>
+                    <!-- Logo / Brand & Hamburger -->
+                    <div class="p-6 flex items-center justify-between border-b border-slate-800/60">
+                        <div class="flex items-center gap-3">
+                            <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                                <i class="fa-solid fa-dice-d20 text-lg"></i>
+                            </div>
+                            <div>
+                                <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">BET PATH</span>
+                                <span class="block text-[10px] text-indigo-400 font-medium tracking-widest uppercase">App Manager</span>
+                            </div>
                         </div>
-                        <div>
-                            <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">BET PATH</span>
-                            <span class="block text-[10px] text-indigo-400 font-medium tracking-widest uppercase">App Manager</span>
-                        </div>
+                        <!-- Hamburger Button (Only Mobile) -->
+                        <button x-on:click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition">
+                            <i class="fa-solid text-lg" :class="mobileMenuOpen ? 'fa-xmark' : 'fa-bars'"></i>
+                        </button>
                     </div>
 
                     <!-- Navigation Links -->
-                    <nav class="p-4 space-y-1">
+                    <nav :class="mobileMenuOpen ? 'block' : 'hidden md:block'" class="p-4 space-y-1">
                         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition duration-200 {{ request()->routeIs('dashboard') ? 'bg-indigo-600/20 text-indigo-300 border-l-4 border-indigo-500 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/40' }}">
                             <i class="fa-solid fa-chart-line w-5"></i>
                             <span>Dashboard</span>
@@ -110,7 +116,7 @@
                 </div>
 
                 <!-- User Profile & Logout -->
-                <div class="p-4 border-t border-slate-800/60">
+                <div :class="mobileMenuOpen ? 'block' : 'hidden md:block'" class="p-4 border-t border-slate-800/60">
                     <div class="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800/40">
                         <div class="flex items-center gap-3 min-w-0">
                             @if(auth()->user()->avatar)
