@@ -253,4 +253,185 @@ class GeminiAnalysisService
             throw new Exception('Error al procesar la imagen del ticket: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Search the web for upcoming bets matches filtering by sport, risk level and odds range.
+     *
+     * @param string|null $sport
+     * @param string $risk
+     * @param float|null $minOdds
+     * @param float|null $maxOdds
+     * @return array
+     * @throws Exception
+     */
+    public function suggestBets(?string $sport = null, string $risk = 'segura', ?float $minOdds = null, ?float $maxOdds = null): array
+    {
+        if (empty($this->apiKey) || $this->apiKey === 'your-gemini-api-key') {
+            throw new Exception('La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
+        }
+
+        $currentDate = now()->format('d M Y');
+        $sportFilter = $sport ? "Deporte específico: {$sport}" : "Cualquier deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo, Tenis, etc.)";
+        $oddsFilter = ($minOdds || $maxOdds) ? "Cuota entre " . ($minOdds ?? 1.01) . " y " . ($maxOdds ?? 10.00) : "Cualquier cuota";
+
+        $prompt = "Eres un buscador de apuestas experto impulsado por IA. La fecha actual es {$currentDate}. Tu tarea es buscar partidos reales programados para hoy, mañana o los próximos 3 días en el año 2026. Prioriza partidos de este año 2026 y encuentra 3 apuestas con alta probabilidad que cumplan con los siguientes criterios:\n\n";
+        $prompt .= "- {$sportFilter}\n";
+        $prompt .= "- Nivel de riesgo sugerido: '{$risk}' (puede ser 'segura', 'moderada' o 'improbable')\n";
+        $prompt .= "- Rango de cuotas: {$oddsFilter}\n\n";
+        $prompt .= "Investiga en internet utilizando tu capacidad de búsqueda web en tiempo real. Busca mercados reales (Ganador, Ambos Anotan, Over/Under de goles/puntos) y cuotas reales de casas de apuestas.\n\n";
+        $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
+        $prompt .= "{\n";
+        $prompt .= "  \"recommendations\": [\n";
+        $prompt .= "    {\n";
+        $prompt .= "      \"sport\": \"Deporte (ej: Fútbol, Básquetbol)\",\n";
+        $prompt .= "      \"league\": \"Nombre de la liga (ej: Premier League, NBA)\",\n";
+        $prompt .= "      \"home_team\": \"Nombre del equipo local\",\n";
+        $prompt .= "      \"away_team\": \"Nombre del equipo visitante\",\n";
+        $prompt .= "      \"match_date\": \"Fecha en formato YYYY-MM-DD\",\n";
+        $prompt .= "      \"market_name\": \"Mercado en español (ej: Ganador, Ambos Anotan, Total de Goles)\",\n";
+        $prompt .= "      \"selection\": \"La selección recomendada exacta (ej: Real Madrid, Más de 2.5, Lakers -4.5)\",\n";
+        $prompt .= "      \"odds\": 1.85,\n";
+        $prompt .= "      \"confidence_score\": 85,\n";
+        $prompt .= "      \"risk\": \"segura|moderada|improbable\",\n";
+        $prompt .= "      \"analysis\": \"Explicación concisa en español de por qué es una buena apuesta (máximo 3 líneas)...\"\n";
+        $prompt .= "    }\n";
+        $prompt .= "  ]\n";
+        $prompt .= "}";
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
+
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt]
+                        ]
+                    ]
+                ],
+                'tools' => [
+                    ['google_search' => new \stdClass()]
+                ],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json'
+                ]
+            ]);
+
+            if ($response->failed()) {
+                $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
+                throw new Exception($errorMsg);
+            }
+
+            $resultText = $response->json('candidates.0.content.parts.0.text');
+            if (empty($resultText)) {
+                throw new Exception('No se recibió texto de respuesta del buscador de apuestas.');
+            }
+
+            $json = json_decode(trim($resultText), true);
+            if (!$json || !isset($json['recommendations'])) {
+                $cleaned = preg_replace('/^```(?:json)?|```$/m', '', trim($resultText));
+                $json = json_decode(trim($cleaned), true);
+                if (!$json || !isset($json['recommendations'])) {
+                    throw new Exception('La respuesta del buscador no se pudo parsear como JSON válido.');
+                }
+            }
+
+            return $json['recommendations'];
+
+        } catch (Exception $e) {
+            \Log::error('Error en suggestBets: ' . $e->getMessage());
+            throw new Exception('Error al obtener sugerencias de la IA: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Suggest a bet or parlay targeting specific odds for a Bet Path step.
+     *
+     * @param float $targetOdds
+     * @param string|null $sport
+     * @return array
+     * @throws Exception
+     */
+    public function suggestBetPathStep(float $targetOdds, ?string $sport = null): array
+    {
+        if (empty($this->apiKey) || $this->apiKey === 'your-gemini-api-key') {
+            throw new Exception('La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
+        }
+
+        $currentDate = now()->format('d M Y');
+        $sportFilter = $sport ? "Deporte preferido: {$sport}" : "Cualquier deporte";
+
+        $prompt = "Eres un buscador de apuestas experto. La fecha actual es {$currentDate}. Tu tarea es buscar partidos reales programados para hoy, mañana o los próximos 3 días en el año 2026 utilizando tu capacidad de búsqueda web en tiempo real.\n\n";
+        $prompt .= "Debes proponer una única apuesta individual o una combinación de hasta 3 apuestas (parlay) de alta probabilidad que sumen una cuota combinada aproximada a: x{$targetOdds} (con un margen aceptable de +/- 15%).\n";
+        $prompt .= "{$sportFilter}.\n\n";
+        $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
+        $prompt .= "{\n";
+        $prompt .= "  \"target_odds\": {$targetOdds},\n";
+        $prompt .= "  \"strategy\": \"single|parlay\",\n";
+        $prompt .= "  \"confidence_score\": 82,\n";
+        $prompt .= "  \"analysis\": \"Justificación concisa de la estrategia en español...\",\n";
+        $prompt .= "  \"selections\": [\n";
+        $prompt .= "    {\n";
+        $prompt .= "      \"sport\": \"Deporte\",\n";
+        $prompt .= "      \"league\": \"Liga\",\n";
+        $prompt .= "      \"home_team\": \"Equipo Local\",\n";
+        $prompt .= "      \"away_team\": \"Equipo Visitante\",\n";
+        $prompt .= "      \"match_date\": \"Fecha YYYY-MM-DD\",\n";
+        $prompt .= "      \"market_name\": \"Mercado\",\n";
+        $prompt .= "      \"selection\": \"Selección recomendada\",\n";
+        $prompt .= "      \"odds\": 1.45\n";
+        $prompt .= "    }\n";
+        $prompt .= "  ]\n";
+        $prompt .= "}";
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
+
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json'
+            ])->post($url, [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt]
+                        ]
+                    ]
+                ],
+                'tools' => [
+                    ['google_search' => new \stdClass()]
+                ],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json'
+                ]
+            ]);
+
+            if ($response->failed()) {
+                $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
+                throw new Exception($errorMsg);
+            }
+
+            $resultText = $response->json('candidates.0.content.parts.0.text');
+            if (empty($resultText)) {
+                throw new Exception('No se recibió texto de respuesta del buscador de pasos.');
+            }
+
+            $json = json_decode(trim($resultText), true);
+            if (!$json || !isset($json['selections'])) {
+                $cleaned = preg_replace('/^```(?:json)?|```$/m', '', trim($resultText));
+                $json = json_decode(trim($cleaned), true);
+                if (!$json || !isset($json['selections'])) {
+                    throw new Exception('La respuesta del buscador no se pudo parsear como JSON válido.');
+                }
+            }
+
+            return $json;
+
+        } catch (Exception $e) {
+            \Log::error('Error en suggestBetPathStep: ' . $e->getMessage());
+            throw new Exception('Error al obtener sugerencias de la IA: ' . $e->getMessage());
+        }
+    }
 }
+

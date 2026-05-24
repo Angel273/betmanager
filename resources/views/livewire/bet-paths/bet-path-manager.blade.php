@@ -107,12 +107,21 @@
 
                                 <!-- Action Buttons -->
                                 @if(!$currentStepData->bet_id)
-                                    <!-- Convert step to bet -->
-                                    <a href="{{ route('bets.register', ['bet_path_id' => $path->id, 'step' => $path->current_step, 'stake' => $currentStepData->expected_stake]) }}"
-                                        class="w-full mt-4 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 text-sm">
-                                        <i class="fa-solid fa-circle-plus"></i>
-                                        <span>Convertir en Apuesta</span>
-                                    </a>
+                                    <div class="mt-4 space-y-2">
+                                        <!-- Convert step to bet -->
+                                        <a href="{{ route('bets.register', ['bet_path_id' => $path->id, 'step' => $path->current_step, 'stake' => $currentStepData->expected_stake]) }}"
+                                            class="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-bold transition duration-200 flex items-center justify-center gap-2 border border-slate-700 text-xs">
+                                            <i class="fa-solid fa-circle-plus text-slate-400"></i>
+                                            <span>Registro Manual</span>
+                                        </a>
+
+                                        <!-- Suggest with IA -->
+                                        <button type="button" wire:click="openSuggestionModal({{ $path->id }}, {{ $path->current_step }}, {{ $currentStepData->calculated_odds }}, {{ $currentStepData->expected_stake }})"
+                                            class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/15 text-sm">
+                                            <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
+                                            <span>Sugerir con IA</span>
+                                        </button>
+                                    </div>
                                 @else
                                     <!-- Settle Bet actions -->
                                     <div class="pt-2 border-t border-indigo-500/10 space-y-2">
@@ -452,6 +461,156 @@
             <!-- Pagination -->
             <div class="mt-4 pt-4 border-t border-slate-800/40">
                 {{ $historyPaths->links() }}
+            </div>
+        </div>
+    @endif
+
+    <!-- IA SUGGESTION STEP MODAL -->
+    @if($showSuggestionModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <!-- Backdrop with blur -->
+            <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md" wire:click="$set('showSuggestionModal', false)"></div>
+
+            <!-- Modal Content Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full relative z-10 shadow-2xl glassmorphism">
+                <!-- Close Button -->
+                <button type="button" wire:click="$set('showSuggestionModal', false)" class="absolute top-4 right-4 text-slate-500 hover:text-white transition duration-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+
+                <!-- Modal Title -->
+                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+                    <span>Asistente de Apuestas con IA</span>
+                </h3>
+
+                @if($suggestingErrorMessage)
+                    <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex gap-2 items-center">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>{{ $suggestingErrorMessage }}</span>
+                    </div>
+                @endif
+
+                <!-- Parameters display -->
+                <div class="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 mb-5 text-xs">
+                    <div>
+                        <span class="text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Cuota Objetivo</span>
+                        <span class="text-base font-black text-indigo-400">x{{ $suggestedStepOdds }}</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Monto de Inversión</span>
+                        <span class="text-base font-black text-emerald-400">${{ number_format($suggestedStepStake, 2) }}</span>
+                    </div>
+                </div>
+
+                <!-- Input preferences -->
+                @if(!$suggestedStepData && !$suggestingLoading)
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Deporte Preferido</label>
+                            <select wire:model.defer="suggestedStepSport"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-200">
+                                <option value="">Cualquiera</option>
+                                <option value="Fútbol">Fútbol / Soccer</option>
+                                <option value="Básquetbol">Básquetbol / NBA</option>
+                                <option value="Béisbol">Béisbol / MLB</option>
+                                <option value="Hockey sobre Hielo">Hockey sobre Hielo / NHL</option>
+                                <option value="Tenis">Tenis</option>
+                            </select>
+                        </div>
+
+                        <button type="button" wire:click="getStepSuggestions"
+                            class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Buscar Combinación con IA</span>
+                        </button>
+                    </div>
+                @endif
+
+                <!-- Loading State -->
+                @if($suggestingLoading)
+                    <div class="flex flex-col items-center justify-center py-12 text-slate-400 space-y-4">
+                        <div class="relative h-12 w-12">
+                            <div class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></div>
+                            <div class="relative inline-flex rounded-full h-12 w-12 bg-indigo-500 flex items-center justify-center text-white">
+                                <i class="fa-solid fa-wand-magic-sparkles animate-spin"></i>
+                            </div>
+                        </div>
+                        <span class="text-sm font-semibold tracking-wider animate-pulse text-indigo-300">Buscando apuestas reales en internet para llegar a cuota x{{ $suggestedStepOdds }}...</span>
+                    </div>
+                @endif
+
+                <!-- Results Display -->
+                @if($suggestedStepData && !$suggestingLoading)
+                    <div class="space-y-4">
+                        <!-- Strategy & Confidence Badge -->
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-850">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                Estrategia: <span class="text-indigo-400">{{ ($suggestedStepData['strategy'] ?? 'single') === 'parlay' ? 'Parlay Combinado' : 'Apuesta Individual' }}</span>
+                            </span>
+                            @if(isset($suggestedStepData['confidence_score']))
+                                <span class="text-[10px] font-semibold text-slate-400">
+                                    Confianza: <span class="text-emerald-400 font-bold">{{ $suggestedStepData['confidence_score'] }}%</span>
+                                </span>
+                            @endif
+                        </div>
+
+                        <!-- Selections List -->
+                        <div class="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            @foreach($suggestedStepData['selections'] as $sel)
+                                <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex justify-between items-center text-xs">
+                                    <div>
+                                        <span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block">{{ $sel['sport'] ?? 'Otros' }} | {{ $sel['league'] ?? 'General' }}</span>
+                                        <span class="font-bold text-white block mt-0.5">{{ $sel['home_team'] ?? 'N/A' }} vs {{ $sel['away_team'] ?? 'N/A' }}</span>
+                                        <span class="text-slate-400 mt-1 block">Mercado: {{ $sel['market_name'] ?? 'Ganador' }} | Sel: <span class="text-indigo-300 font-medium">{{ $sel['selection'] ?? 'N/A' }}</span></span>
+                                    </div>
+                                    <div class="text-right pl-3 border-l border-slate-800">
+                                        <span class="text-[9px] text-slate-500 uppercase block font-bold">Cuota</span>
+                                        <span class="text-sm font-black text-emerald-400">x{{ $sel['odds'] }}</span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <!-- Summary info -->
+                        <div class="p-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 text-xs space-y-1">
+                            @php
+                                $combined = 1.00;
+                                foreach($suggestedStepData['selections'] as $sel) {
+                                    $combined *= floatval($sel['odds'] ?? 1.50);
+                                }
+                                $combined = round($combined, 2);
+                            @endphp
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Cuota Final Producida:</span>
+                                <span class="font-black text-indigo-300">x{{ $combined }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400 font-semibold">Pago Esperado:</span>
+                                <span class="font-black text-emerald-400">${{ number_format($suggestedStepStake * $combined, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Analysis explanation -->
+                        @if(isset($suggestedStepData['analysis']))
+                            <p class="text-xs text-slate-400 leading-relaxed italic border-l-2 border-indigo-500/50 pl-3 py-1">
+                                "{{ $suggestedStepData['analysis'] }}"
+                            </p>
+                        @endif
+
+                        <!-- Actions -->
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <button type="button" wire:click="$set('showSuggestionModal', false)"
+                                class="w-full py-3 px-4 rounded-xl border border-slate-800 hover:bg-slate-800/40 text-slate-400 hover:text-white font-bold transition duration-200 text-sm">
+                                Rechazar
+                            </button>
+                            <button type="button" wire:click="acceptStepSuggestion"
+                                class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold transition duration-200 text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/10">
+                                <i class="fa-solid fa-circle-check"></i> Aceptar y Registrar
+                            </button>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     @endif

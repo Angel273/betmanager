@@ -91,6 +91,11 @@
                             <span>Registrar Apuesta</span>
                         </a>
 
+                        <a href="{{ route('bets.finder') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition duration-200 {{ request()->routeIs('bets.finder') ? 'bg-indigo-600/20 text-indigo-300 border-l-4 border-indigo-500 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/40' }}">
+                            <i class="fa-solid fa-wand-magic-sparkles w-5"></i>
+                            <span>Buscador IA</span>
+                        </a>
+
                         <a href="{{ route('bet-paths') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition duration-200 {{ request()->routeIs('bet-paths') ? 'bg-indigo-600/20 text-indigo-300 border-l-4 border-indigo-500 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/40' }}">
                             <i class="fa-solid fa-route w-5"></i>
                             <span>Bet Path</span>

@@ -222,7 +222,33 @@
                     <i class="fa-solid fa-shield-halved text-indigo-400/50"></i>
                     <span>Tus datos y registros están guardados localmente.</span>
                 </div>
+        </div>
+    </div>
+
+    <!-- Collapsible Bet Finder Section -->
+    <div x-data="{ open: false }" class="glassmorphism rounded-2xl relative mb-8 overflow-hidden">
+        <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+        
+        <!-- Toggle Header -->
+        <button type="button" x-on:click="open = !open" 
+            class="w-full p-6 flex justify-between items-center bg-slate-900/40 hover:bg-slate-900/60 transition duration-150 text-left">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Buscador de Apuestas IA (Búsqueda Rápida)</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Encuentra recomendaciones de apuestas usando búsqueda web en tiempo real sin salir de tu panel.</p>
+                </div>
             </div>
+            <div class="text-slate-400">
+                <i class="fa-solid" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </div>
+        </button>
+
+        <!-- Collapsible Content -->
+        <div x-show="open" x-transition class="p-6 border-t border-slate-800/60">
+            @livewire('bets.bet-finder')
         </div>
     </div>
 

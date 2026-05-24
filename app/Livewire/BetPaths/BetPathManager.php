@@ -4,8 +4,15 @@ namespace App\Livewire\BetPaths;
 
 use App\Models\BetPath;
 use App\Models\BetPathStep;
+use App\Models\Bet;
+use App\Models\Sport;
+use App\Models\League;
+use App\Models\Team;
+use App\Models\BetSelection;
+use App\Services\GeminiAnalysisService;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Exception;
 
 class BetPathManager extends Component
 {
@@ -26,6 +33,17 @@ class BetPathManager extends Component
     public $previewSteps = [];
     public $calculatedOdds = 0.00;
     public $calculatedStepsCount = 0;
+
+    // Suggestion properties
+    public $showSuggestionModal = false;
+    public $suggestedStepSport = '';
+    public $suggestedStepOdds = 0.00;
+    public $suggestedStepStake = 0.00;
+    public $suggestedStepPathId = null;
+    public $suggestedStepNumber = null;
+    public $suggestedStepData = null;
+    public $suggestingLoading = false;
+    public $suggestingErrorMessage = '';
 
     public function mount()
     {
@@ -208,6 +226,159 @@ class BetPathManager extends Component
         $bet = \App\Models\Bet::where('user_id', auth()->id())->findOrFail($betId);
         $bet->settle($status);
         session()->flash('success', 'Apuesta asociada calificada con éxito. El progreso del Bet Path ha sido actualizado.');
+    }
+
+    public function openSuggestionModal($pathId, $stepNumber, $targetOdds, $expectedStake)
+    {
+        $this->suggestedStepPathId = $pathId;
+        $this->suggestedStepNumber = $stepNumber;
+        $this->suggestedStepOdds = floatval($targetOdds);
+        $this->suggestedStepStake = floatval($expectedStake);
+        $this->suggestedStepSport = '';
+        $this->suggestedStepData = null;
+        $this->suggestingErrorMessage = '';
+        $this->suggestingLoading = false;
+        $this->showSuggestionModal = true;
+    }
+
+    public function getStepSuggestions()
+    {
+        $this->suggestingErrorMessage = '';
+        $this->suggestedStepData = null;
+        $this->suggestingLoading = true;
+
+        try {
+            $service = new GeminiAnalysisService();
+            $this->suggestedStepData = $service->suggestBetPathStep(
+                $this->suggestedStepOdds,
+                $this->suggestedStepSport ?: null
+            );
+
+            if (empty($this->suggestedStepData) || empty($this->suggestedStepData['selections'])) {
+                $this->suggestingErrorMessage = 'No se encontraron sugerencias de apuestas para la cuota especificada.';
+            }
+        } catch (Exception $e) {
+            $this->suggestingErrorMessage = $e->getMessage();
+            \Log::error('Error in BetPathManager getStepSuggestions: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+        } finally {
+            $this->suggestingLoading = false;
+        }
+    }
+
+    public function acceptStepSuggestion()
+    {
+        if (!$this->suggestedStepData || empty($this->suggestedStepData['selections'])) {
+            return;
+        }
+
+        try {
+            \DB::transaction(function () {
+                $strategy = $this->suggestedStepData['strategy'] ?? 'single';
+                
+                // Calculate actual combined odds from selections
+                $combinedOdds = 1.00;
+                foreach ($this->suggestedStepData['selections'] as $sel) {
+                    $combinedOdds *= floatval($sel['odds'] ?? 1.50);
+                }
+                $combinedOdds = round($combinedOdds, 2);
+
+                // Create the Bet
+                $bet = Bet::create([
+                    'user_id' => auth()->id(),
+                    'type' => $strategy,
+                    'stake' => $this->suggestedStepStake,
+                    'odds' => $combinedOdds,
+                    'payout' => 0.00,
+                    'profit' => 0.00,
+                    'status' => 'pending',
+                    'bet_path_id' => $this->suggestedStepPathId,
+                    'bet_path_step' => $this->suggestedStepNumber,
+                    'notes' => 'Registrada automáticamente a través del Asistente Bet Path con IA.',
+                    'analyzed_at' => now(),
+                    'ai_analysis' => [
+                        'risk' => 'moderada', // default
+                        'score' => $this->suggestedStepData['confidence_score'] ?? 80,
+                        'analysis' => $this->suggestedStepData['analysis'] ?? 'Sugerencia de paso por Bet Path Finder.',
+                        'h2h' => [],
+                        'stats' => null
+                    ]
+                ]);
+
+                // Create Selections
+                foreach ($this->suggestedStepData['selections'] as $sel) {
+                    // Resolve Sport
+                    $sportName = trim($sel['sport'] ?? 'Otros');
+                    $sport = Sport::firstOrCreate(['name' => $sportName]);
+
+                    // Resolve Region and Country (Default)
+                    $region = \App\Models\Region::firstOrCreate(['name' => 'Internacional']);
+                    $country = \App\Models\Country::firstOrCreate([
+                        'name' => 'Global',
+                        'region_id' => $region->id
+                    ]);
+
+                    // Resolve League
+                    $leagueName = trim($sel['league'] ?? 'General');
+                    $league = League::firstOrCreate([
+                        'name' => $leagueName,
+                        'sport_id' => $sport->id
+                    ], [
+                        'country_id' => $country->id
+                    ]);
+
+                    // Resolve Teams
+                    $teamHome = null;
+                    if (!empty($sel['home_team']) && $sel['home_team'] !== 'N/A') {
+                        $teamHome = Team::firstOrCreate([
+                            'name' => trim($sel['home_team']),
+                            'league_id' => $league->id
+                        ]);
+                    }
+
+                    $teamAway = null;
+                    if (!empty($sel['away_team']) && $sel['away_team'] !== 'N/A') {
+                        $teamAway = Team::firstOrCreate([
+                            'name' => trim($sel['away_team']),
+                            'league_id' => $league->id
+                        ]);
+                    }
+
+                    BetSelection::create([
+                        'bet_id' => $bet->id,
+                        'sport_id' => $sport->id,
+                        'league_id' => $league->id,
+                        'team_home_id' => $teamHome?->id,
+                        'team_away_id' => $teamAway?->id,
+                        'market_name' => trim($sel['market_name'] ?? 'Ganador'),
+                        'selection' => trim($sel['selection'] ?? ($teamHome?->name ?? 'Apuesta')),
+                        'odds' => floatval($sel['odds'] ?? 1.50),
+                        'status' => 'pending',
+                    ]);
+                }
+
+                // Link to Step
+                $step = BetPathStep::where('bet_path_id', $this->suggestedStepPathId)
+                    ->where('step_number', $this->suggestedStepNumber)
+                    ->first();
+
+                if ($step) {
+                    $step->update([
+                        'bet_id' => $bet->id,
+                        'status' => 'pending'
+                    ]);
+                }
+            });
+
+            session()->flash('success', '¡Apuesta sugerida registrada y vinculada con éxito!');
+            $this->showSuggestionModal = false;
+            $this->suggestedStepData = null;
+
+        } catch (Exception $e) {
+            \Log::error('Error accepting Bet Path step suggestion: ' . $e->getMessage());
+            $this->suggestingErrorMessage = 'Error al registrar y vincular la apuesta: ' . $e->getMessage();
+        }
     }
 
     public function render()

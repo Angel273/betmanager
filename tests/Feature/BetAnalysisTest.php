@@ -160,4 +160,99 @@ class BetAnalysisTest extends TestCase
             ->call('analyzeBet', $this->bet->id)
             ->assertSet('errorMessage', 'La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
     }
+
+    public function test_suggest_bets_successful()
+    {
+        $_ENV['GEMINI_API_KEY'] = 'test-api-key';
+        $_SERVER['GEMINI_API_KEY'] = 'test-api-key';
+        putenv('GEMINI_API_KEY=test-api-key');
+
+        Http::fake([
+            'https://generativelanguage.googleapis.com/*' => Http::response([
+                'candidates' => [
+                    [
+                        'content' => [
+                            'parts' => [
+                                [
+                                    'text' => json_encode([
+                                        'recommendations' => [
+                                            [
+                                                'sport' => 'Fútbol',
+                                                'league' => 'La Liga',
+                                                'home_team' => 'Real Madrid',
+                                                'away_team' => 'Barcelona',
+                                                'match_date' => '2026-05-25',
+                                                'market_name' => 'Ganador',
+                                                'selection' => 'Real Madrid',
+                                                'odds' => 1.85,
+                                                'confidence_score' => 85,
+                                                'risk' => 'segura',
+                                                'analysis' => 'Real Madrid de local es fuerte.'
+                                            ]
+                                        ]
+                                    ])
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ], 200)
+        ]);
+
+        $service = new GeminiAnalysisService();
+        $suggestions = $service->suggestBets('Fútbol', 'segura', 1.5, 2.0);
+
+        $this->assertCount(1, $suggestions);
+        $this->assertEquals('Real Madrid', $suggestions[0]['home_team']);
+        $this->assertEquals(1.85, $suggestions[0]['odds']);
+    }
+
+    public function test_suggest_bet_path_step_successful()
+    {
+        $_ENV['GEMINI_API_KEY'] = 'test-api-key';
+        $_SERVER['GEMINI_API_KEY'] = 'test-api-key';
+        putenv('GEMINI_API_KEY=test-api-key');
+
+        Http::fake([
+            'https://generativelanguage.googleapis.com/*' => Http::response([
+                'candidates' => [
+                    [
+                        'content' => [
+                            'parts' => [
+                                [
+                                    'text' => json_encode([
+                                        'target_odds' => 2.00,
+                                        'strategy' => 'single',
+                                        'confidence_score' => 82,
+                                        'analysis' => 'Estrategia de prueba.',
+                                        'selections' => [
+                                            [
+                                                'sport' => 'Fútbol',
+                                                'league' => 'La Liga',
+                                                'home_team' => 'Atletico Madrid',
+                                                'away_team' => 'Sevilla',
+                                                'match_date' => '2026-05-25',
+                                                'market_name' => 'Ganador',
+                                                'selection' => 'Atletico Madrid',
+                                                'odds' => 2.00
+                                            ]
+                                        ]
+                                    ])
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ], 200)
+        ]);
+
+        $service = new GeminiAnalysisService();
+        $result = $service->suggestBetPathStep(2.00, 'Fútbol');
+
+        $this->assertEquals('single', $result['strategy']);
+        $this->assertEquals(2.00, $result['target_odds']);
+        $this->assertCount(1, $result['selections']);
+        $this->assertEquals('Atletico Madrid', $result['selections'][0]['selection']);
+    }
 }
+

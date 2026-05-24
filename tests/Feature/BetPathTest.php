@@ -221,4 +221,92 @@ class BetPathTest extends TestCase
         $this->assertEquals('failed', $path->status);
         $this->assertEquals('lost', $step1->status);
     }
+
+    /**
+     * Test that accepting an AI suggestion correctly creates a bet and links it to the active step.
+     */
+    public function test_accept_step_suggestion_successful()
+    {
+        // 1. Create a path
+        $path = BetPath::create([
+            'user_id' => $this->user->id,
+            'name' => 'Reto Test',
+            'start_amount' => 10.00,
+            'target_amount' => 50.00,
+            'reinvestment_rate' => 100.00,
+            'current_step' => 1,
+            'total_steps' => 3,
+            'status' => 'active',
+        ]);
+
+        $step1 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 1,
+            'calculated_odds' => 2.00,
+            'expected_stake' => 10.00,
+            'expected_payout' => 20.00,
+            'status' => 'pending',
+        ]);
+
+        // 2. Set up component
+        $component = \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\BetPaths\BetPathManager::class);
+
+        // Simulate opening suggestion modal
+        $component->call('openSuggestionModal', $path->id, 1, 2.00, 10.00);
+
+        // Assert properties were set correctly
+        $component->assertSet('suggestedStepPathId', $path->id)
+            ->assertSet('suggestedStepNumber', 1)
+            ->assertSet('suggestedStepOdds', 2.00)
+            ->assertSet('suggestedStepStake', 10.00);
+
+        // Simulate receiving suggestion data from IA
+        $mockedData = [
+            'strategy' => 'single',
+            'confidence_score' => 85,
+            'analysis' => 'Justificación de prueba.',
+            'selections' => [
+                [
+                    'sport' => 'Fútbol',
+                    'league' => 'La Liga',
+                    'home_team' => 'Real Madrid',
+                    'away_team' => 'Atletico Madrid',
+                    'market_name' => 'Ganador',
+                    'selection' => 'Real Madrid',
+                    'odds' => 2.00
+                ]
+            ]
+        ];
+        
+        $component->set('suggestedStepData', $mockedData);
+
+        // Call acceptStepSuggestion
+        $component->call('acceptStepSuggestion');
+
+        // Assert modal is closed
+        $component->assertSet('showSuggestionModal', false);
+
+        // 3. Verify database state
+        $step1->refresh();
+        $this->assertNotNull($step1->bet_id);
+        $this->assertEquals('pending', $step1->status);
+
+        $bet = $step1->bet;
+        $this->assertNotNull($bet);
+        $this->assertEquals(10.00, $bet->stake);
+        $this->assertEquals(2.00, $bet->odds);
+        $this->assertEquals('pending', $bet->status);
+        $this->assertEquals($path->id, $bet->bet_path_id);
+        $this->assertEquals(1, $bet->bet_path_step);
+
+        $this->assertCount(1, $bet->selections);
+        $selection = $bet->selections->first();
+        $this->assertEquals('Real Madrid', $selection->selection);
+        $this->assertEquals('Ganador', $selection->market_name);
+        $this->assertEquals(2.00, $selection->odds);
+        $this->assertEquals('Fútbol', $selection->sport->name);
+        $this->assertEquals('La Liga', $selection->league->name);
+    }
 }
+
