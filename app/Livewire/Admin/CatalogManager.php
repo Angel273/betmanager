@@ -278,11 +278,27 @@ class CatalogManager extends Component
             ]);
             session()->flash('success', 'Equipo actualizado.');
         } else {
-            Team::create([
-                'name' => trim($this->team_name),
-                'league_id' => $this->team_league_id
-            ]);
-            session()->flash('success', 'Equipo creado.');
+            // Split by commas and/or newlines
+            $names = preg_split('/[\n,]+/', $this->team_name);
+            $createdCount = 0;
+
+            foreach ($names as $name) {
+                $trimmedName = trim($name);
+                if (!empty($trimmedName)) {
+                    // Check if it already exists to avoid duplicates
+                    Team::firstOrCreate([
+                        'name' => $trimmedName,
+                        'league_id' => $this->team_league_id
+                    ]);
+                    $createdCount++;
+                }
+            }
+
+            if ($createdCount > 1) {
+                session()->flash('success', "$createdCount equipos creados con éxito.");
+            } else {
+                session()->flash('success', 'Equipo creado.');
+            }
         }
         $this->resetForms();
     }

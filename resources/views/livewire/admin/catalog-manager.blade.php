@@ -111,9 +111,18 @@
 
                     @if($activeTab === 'teams')
                         <div>
-                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre del Equipo</label>
-                            <input type="text" wire:model="team_name" placeholder="Ej. Real Madrid, LA Lakers"
-                                class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200 mb-4">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                {{ $isEditMode ? 'Nombre del Equipo' : 'Nombre del Equipo / Lista de Equipos' }}
+                            </label>
+                            
+                            @if($isEditMode)
+                                <input type="text" wire:model="team_name" placeholder="Ej. Real Madrid"
+                                    class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200 mb-4">
+                            @else
+                                <textarea wire:model="team_name" rows="4" placeholder="Ej. Real Madrid, Barcelona, Atletico de Madrid (separados por comas o saltos de línea)"
+                                    class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200 mb-1"></textarea>
+                                <span class="text-slate-500 text-[10px] block mb-4">Puedes agregar múltiples equipos ingresando los nombres separados por comas o en líneas distintas.</span>
+                            @endif
                             @error('team_name') <span class="text-red-400 text-xs mt-1 block mb-3">{{ $message }}</span> @enderror
 
                             <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Liga a la que pertenece</label>
