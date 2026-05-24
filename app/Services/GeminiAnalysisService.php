@@ -202,11 +202,19 @@ class GeminiAnalysisService
 
             if ($response->failed()) {
                 $errorMsg = $response->json('error.message') ?? 'Error en la API de Google Gemini.';
+                \Log::error('Gemini ticket parsing API call failed', [
+                    'status' => $response->status(),
+                    'error' => $response->json(),
+                    'body' => $response->body()
+                ]);
                 throw new Exception($errorMsg);
             }
 
             $resultText = $response->json('candidates.0.content.parts.0.text');
             if (empty($resultText)) {
+                \Log::error('Gemini ticket parsing API returned empty response text', [
+                    'raw_response' => $response->json()
+                ]);
                 throw new Exception('No se recibió texto de respuesta de la IA.');
             }
 
@@ -218,6 +226,9 @@ class GeminiAnalysisService
                 $json = json_decode(trim($cleaned), true);
                 
                 if (!$json || !isset($json['selections'])) {
+                    \Log::error('Gemini ticket parsing returned invalid JSON format', [
+                        'raw_text' => $resultText,
+                    ]);
                     throw new Exception('La respuesta de la IA no se pudo parsear como un JSON estructurado de ticket.');
                 }
             }
@@ -225,6 +236,9 @@ class GeminiAnalysisService
             return $json;
 
         } catch (Exception $e) {
+            \Log::error('Error in parseTicketImage service call: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
             throw new Exception('Error al procesar la imagen del ticket: ' . $e->getMessage());
         }
     }

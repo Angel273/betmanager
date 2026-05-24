@@ -413,6 +413,10 @@ class BetRegistry extends Component
 
             session()->flash('success', 'Ticket de apuestas escaneado y procesado con éxito por Gemini. Por favor revisa los datos antes de guardar.');
         } catch (\Exception $e) {
+            \Log::error('Error en updatedTicketImage del Livewire BetRegistry: ' . $e->getMessage(), [
+                'exception' => $e,
+                'file_name' => $this->ticketImage ? $this->ticketImage->getClientOriginalName() : 'N/A'
+            ]);
             session()->flash('error', 'Error al escanear el ticket: ' . $e->getMessage());
         } finally {
             $this->ticketImage = null; // Reset file input

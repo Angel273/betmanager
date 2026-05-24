@@ -83,6 +83,13 @@
                     <i class="fa-solid fa-brain animate-bounce"></i>
                     <span>Gemini 2.5 Flash está procesando tu ticket...</span>
                 </div>
+
+                @error('ticketImage')
+                    <div class="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex gap-2 items-center">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                        <span>{{ $message }}</span>
+                    </div>
+                @enderror
             </div>
 
             @foreach($selections as $index => $sel)
