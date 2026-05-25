@@ -372,21 +372,40 @@ class GeminiAnalysisService
      *
      * @param float $targetOdds
      * @param string|null $sport
+     * @param string $searchDate
      * @return array
      * @throws Exception
      */
-    public function suggestBetPathStep(float $targetOdds, ?string $sport = null): array
+    public function suggestBetPathStep(float $targetOdds, ?string $sport = null, string $searchDate = ''): array
     {
         if (empty($this->apiKey) || $this->apiKey === 'your-gemini-api-key') {
             throw new Exception('La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
         }
 
-        $currentDate = now()->format('d M Y');
+        if (empty($searchDate)) {
+            $searchDate = now()->format('Y-m-d');
+        }
+
+        $currentDate = now()->format('Y-m-d');
+        $currentTime = now()->utc()->format('H:i');
         $sportFilter = $sport ? "Deporte preferido: {$sport}" : "Cualquier deporte";
 
-        $prompt = "Eres un buscador de apuestas experto. La fecha actual es {$currentDate}. Tu tarea es buscar partidos reales programados para hoy, mañana o los próximos 3 días en el año 2026 utilizando tu capacidad de búsqueda web en tiempo real.\n\n";
+        $prompt = "Eres un buscador de apuestas experto. La fecha y hora actuales (UTC) son: {$currentDate} a las {$currentTime} UTC. Tu tarea es buscar partidos reales programados para la fecha: {$searchDate} utilizando tu capacidad de búsqueda web en tiempo real.\n\n";
+        $prompt .= "Si la fecha solicitada es hoy ({$currentDate}), incluye únicamente partidos cuya hora de inicio sea posterior a las {$currentTime} UTC (aún no han comenzado).\n\n";
         $prompt .= "Debes proponer una única apuesta individual o una combinación de hasta 3 apuestas (parlay) de alta probabilidad que sumen una cuota combinada aproximada a: x{$targetOdds} (con un margen aceptable de +/- 15%).\n";
-        $prompt .= "{$sportFilter}.\n\n";
+        $prompt .= "- {$sportFilter}.\n\n";
+        $prompt .= "RESTRICCIONES DE CATEGORÍA (MUY IMPORTANTE - exclúyelas sin excepción):\n";
+
+        // Fetch blacklisted leagues
+        $blacklisted = \App\Models\BlacklistedLeague::pluck('name')->toArray();
+        if (!empty($blacklisted)) {
+            $prompt .= "- EXCLUYE estrictamente y sin excepciones las siguientes ligas: " . implode(', ', $blacklisted) . ".\n";
+        }
+
+        $prompt .= "- Para competiciones de CLUBES: únicamente primera división (ej: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, MLS, Liga MX, etc.) o segunda división (ej: Championship, Serie B, Segunda División, etc.). Excluye absolutamente cualquier liga de tercera división o inferior.\n";
+        $prompt .= "- Para competiciones INTERNACIONALES/SELECCIONES: únicamente categoría absoluta (senior) o Sub-21 (U21) como máximo. Excluye Sub-20, Sub-17, Sub-15 y cualquier categoría juvenil inferior a U21.\n";
+        $prompt .= "- Excluye también ligas regionales, amateur, reservas, filiales y competiciones universitarias.\n\n";
+
         $prompt .= "IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"target_odds\": {$targetOdds},\n";

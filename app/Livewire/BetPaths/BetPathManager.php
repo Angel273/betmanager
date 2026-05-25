@@ -42,6 +42,7 @@ class BetPathManager extends Component
     public $suggestedStepPathId = null;
     public $suggestedStepNumber = null;
     public $suggestedStepData = null;
+    public $suggestedStepDate = '';
     public $suggestingLoading = false;
     public $suggestingErrorMessage = '';
 
@@ -235,6 +236,7 @@ class BetPathManager extends Component
         $this->suggestedStepOdds = floatval($targetOdds);
         $this->suggestedStepStake = floatval($expectedStake);
         $this->suggestedStepSport = '';
+        $this->suggestedStepDate = today()->format('Y-m-d');
         $this->suggestedStepData = null;
         $this->suggestingErrorMessage = '';
         $this->suggestingLoading = false;
@@ -247,11 +249,20 @@ class BetPathManager extends Component
         $this->suggestedStepData = null;
         $this->suggestingLoading = true;
 
+        $this->validate([
+            'suggestedStepDate' => 'required|date|after_or_equal:today',
+        ], [
+            'suggestedStepDate.required' => 'La fecha de búsqueda es obligatoria.',
+            'suggestedStepDate.date' => 'La fecha de búsqueda debe ser una fecha válida.',
+            'suggestedStepDate.after_or_equal' => 'La fecha de búsqueda debe ser hoy o una fecha posterior.',
+        ]);
+
         try {
             $service = new GeminiAnalysisService();
             $this->suggestedStepData = $service->suggestBetPathStep(
                 $this->suggestedStepOdds,
-                $this->suggestedStepSport ?: null
+                $this->suggestedStepSport ?: null,
+                $this->suggestedStepDate
             );
 
             if (empty($this->suggestedStepData) || empty($this->suggestedStepData['selections'])) {

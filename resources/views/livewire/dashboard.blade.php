@@ -383,9 +383,15 @@
                                 </div>
                             @elseif($bet->analyzed_at)
                                 <button wire:key="ai-badge-{{ $bet->id }}" wire:click="openAiAnalysisModal({{ $bet->id }})"
-                                    class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 hover:bg-slate-700 transition duration-150"
+                                    wire:loading.attr="disabled"
+                                    class="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-[10px] flex items-center gap-1.5 hover:bg-slate-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Ver Análisis de IA">
-                                    <i class="fa-solid fa-robot text-amber-400"></i>
+                                    <span wire:loading.remove wire:target="openAiAnalysisModal({{ $bet->id }})">
+                                        <i class="fa-solid fa-robot text-amber-400"></i>
+                                    </span>
+                                    <span wire:loading wire:target="openAiAnalysisModal({{ $bet->id }})">
+                                        <i class="fa-solid fa-circle-notch animate-spin text-indigo-400"></i>
+                                    </span>
                                     <span class="font-bold text-slate-300">Riesgo: 
                                         @if(isset($bet->ai_analysis['risk']))
                                             <span class="{{ $bet->ai_analysis['risk'] === 'segura' ? 'text-emerald-400' : ($bet->ai_analysis['risk'] === 'moderada' ? 'text-amber-400' : 'text-red-400') }} uppercase">
@@ -402,7 +408,12 @@
                                     wire:click="analyzeBet({{ $bet->id }})"
                                     wire:loading.attr="disabled"
                                     class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="fa-solid fa-robot text-amber-400"></i>
+                                    <span wire:loading.remove wire:target="analyzeBet({{ $bet->id }})">
+                                        <i class="fa-solid fa-robot text-amber-400"></i>
+                                    </span>
+                                    <span wire:loading wire:target="analyzeBet({{ $bet->id }})">
+                                        <i class="fa-solid fa-circle-notch animate-spin text-indigo-400"></i>
+                                    </span>
                                     <span>Analizar Apuesta</span>
                                 </button>
                             @endif

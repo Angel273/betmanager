@@ -245,13 +245,20 @@ class BetAnalysisTest extends TestCase
             ], 200)
         ]);
 
+        \App\Models\BlacklistedLeague::create(['name' => 'Liga de Prueba Excluida']);
+
         $service = new GeminiAnalysisService();
-        $result = $service->suggestBetPathStep(2.00, 'Fútbol');
+        $result = $service->suggestBetPathStep(2.00, 'Fútbol', '2026-06-15');
 
         $this->assertEquals('single', $result['strategy']);
         $this->assertEquals(2.00, $result['target_odds']);
         $this->assertCount(1, $result['selections']);
         $this->assertEquals('Atletico Madrid', $result['selections'][0]['selection']);
+
+        Http::assertSent(function ($request) {
+            $promptText = $request['contents'][0]['parts'][0]['text'];
+            return str_contains($promptText, '2026-06-15') && str_contains($promptText, 'Liga de Prueba Excluida');
+        });
     }
 }
 

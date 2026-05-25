@@ -39,6 +39,9 @@ class Dashboard extends Component
                 'ai_analysis' => $analysis,
             ]);
 
+            $this->selectedBetForAnalysis = $bet;
+            $this->showAiModal = true;
+
             session()->flash('success', 'Apuesta #' . $betId . ' analizada con éxito por la IA.');
         } catch (\Exception $e) {
             \Log::error('Error en Dashboard al analizar la apuesta: ' . $e->getMessage(), [

@@ -519,6 +519,14 @@
                             </select>
                         </div>
 
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Fecha del Partido</label>
+                            <input type="date" wire:model.defer="suggestedStepDate" min="{{ date('Y-m-d') }}"
+                                style="color-scheme: dark;"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-200">
+                            @error('suggestedStepDate') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
                         <button type="button" wire:click="getStepSuggestions"
                             class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10">
                             <i class="fa-solid fa-magnifying-glass"></i>
