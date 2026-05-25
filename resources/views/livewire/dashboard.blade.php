@@ -189,6 +189,106 @@
         </div>
     </div>
 
+    <!-- Advanced Analytics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <!-- Markets Stats -->
+        <div class="glassmorphism p-6 rounded-2xl relative flex flex-col justify-between">
+            <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+            <div>
+                <h3 class="text-xs font-bold text-slate-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <i class="fa-solid fa-list-check text-indigo-400 text-sm"></i>
+                    <span>Efectividad de Mercados</span>
+                </h3>
+                <div class="space-y-3">
+                    @forelse($advancedStats['markets'] as $market => $mStats)
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="text-slate-400 font-medium truncate max-w-[130px]" title="{{ $market }}">{{ $market }}</span>
+                                <div class="flex items-center gap-2 font-bold shrink-0">
+                                    <span class="text-white">{{ $mStats['win_rate'] }}%</span>
+                                    <span class="text-[10px] text-slate-500 font-medium">({{ $mStats['won'] }}/{{ $mStats['total'] }})</span>
+                                </div>
+                            </div>
+                            <!-- Simple Progress Bar -->
+                            <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-indigo-500 h-full rounded-full" style="width: {{ $mStats['win_rate'] }}%"></div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="py-12 text-center text-slate-500 text-xs">
+                            No hay suficientes apuestas calificadas.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        <!-- Sports Stats -->
+        <div class="glassmorphism p-6 rounded-2xl relative flex flex-col justify-between">
+            <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+            <div>
+                <h3 class="text-xs font-bold text-slate-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <i class="fa-solid fa-trophy text-amber-400 text-sm"></i>
+                    <span>Balance por Deporte</span>
+                </h3>
+                <div class="space-y-3">
+                    @forelse($advancedStats['sports'] as $sport => $profit)
+                        <div class="flex justify-between items-center text-xs py-1 border-b border-slate-800/30">
+                            <span class="text-slate-400 font-medium">{{ $sport }}</span>
+                            <span class="font-extrabold {{ $profit >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
+                                {{ $profit >= 0 ? '+' : '' }}${{ number_format($profit, 2) }}
+                            </span>
+                        </div>
+                    @empty
+                        <div class="py-12 text-center text-slate-500 text-xs">
+                            No hay suficientes apuestas calificadas.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        <!-- Single vs Parlay Stats -->
+        <div class="glassmorphism p-6 rounded-2xl relative flex flex-col justify-between">
+            <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+            <div>
+                <h3 class="text-xs font-bold text-slate-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
+                    <i class="fa-solid fa-sliders text-indigo-400 text-sm"></i>
+                    <span>Sencillas vs Combinadas</span>
+                </h3>
+                <div class="space-y-3.5 text-xs">
+                    <!-- Singles -->
+                    <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/40 flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-white block">Sencillas</span>
+                            <span class="text-[10px] text-slate-500">Volumen: {{ $advancedStats['types']['single']['total'] }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-indigo-300 block">{{ $advancedStats['types']['single']['win_rate'] }}% Acierto</span>
+                            <span class="font-bold text-[10px] {{ $advancedStats['types']['single']['profit'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
+                                {{ $advancedStats['types']['single']['profit'] >= 0 ? '+' : '' }}${{ number_format($advancedStats['types']['single']['profit'], 2) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Parlays -->
+                    <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/40 flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-white block">Parlays / Combinadas</span>
+                            <span class="text-[10px] text-slate-500">Volumen: {{ $advancedStats['types']['parlay']['total'] }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-indigo-300 block">{{ $advancedStats['types']['parlay']['win_rate'] }}% Acierto</span>
+                            <span class="font-bold text-[10px] {{ $advancedStats['types']['parlay']['profit'] >= 0 ? 'text-emerald-400' : 'text-red-400' }}">
+                                {{ $advancedStats['types']['parlay']['profit'] >= 0 ? '+' : '' }}${{ number_format($advancedStats['types']['parlay']['profit'], 2) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Collapsible Bet Finder Section -->
     <div x-data="{ open: false }" class="glassmorphism rounded-2xl relative mb-8 overflow-hidden">
         <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
@@ -317,8 +417,18 @@
                                         @endif
                                     </div>
                                 </div>
-                                <div class="text-right text-xs font-bold text-indigo-300 shrink-0">
-                                    Cuota: x{{ $sel->odds }}
+                                <div class="flex items-center gap-3 mt-2 sm:mt-0 self-stretch sm:self-auto justify-between sm:justify-end shrink-0">
+                                    <div class="text-xs font-bold text-indigo-300">
+                                        Cuota: x{{ $sel->odds }}
+                                    </div>
+                                    
+                                    <select wire:change="updateSelectionStatus({{ $sel->id }}, $event.target.value)"
+                                        class="bg-slate-950 border border-slate-800 text-[10px] font-bold rounded-lg py-1 px-2 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-150 cursor-pointer">
+                                        <option value="pending" {{ $sel->status === 'pending' ? 'selected' : '' }}>⏳ Pendiente</option>
+                                        <option value="won" {{ $sel->status === 'won' ? 'selected' : '' }}>✅ Ganada</option>
+                                        <option value="lost" {{ $sel->status === 'lost' ? 'selected' : '' }}>❌ Perdida</option>
+                                        <option value="voided" {{ $sel->status === 'voided' ? 'selected' : '' }}>🔄 Cancelada</option>
+                                    </select>
                                 </div>
                             </div>
                         @endforeach

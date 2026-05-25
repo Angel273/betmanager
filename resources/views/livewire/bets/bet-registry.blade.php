@@ -227,10 +227,31 @@
                         </div>
 
                         <!-- Market -->
-                        <div>
+                        <div x-data="{ isCustom: false }" x-init="isCustom = !['Ganador (1X2)', 'Ambos Anotan', 'Más/Menos Goles', 'Más/Menos Puntos', 'Hándicap'].includes($wire.get('selections.{{ $index }}.market_name')) && $wire.get('selections.{{ $index }}.market_name') !== '' && $wire.get('selections.{{ $index }}.market_name') !== null">
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mercado</label>
-                            <input type="text" wire:model.live="selections.{{ $index }}.market_name" placeholder="Ej. Línea de Dinero, Más de 2.5"
-                                class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-200">
+                            
+                            <div x-show="!isCustom">
+                                <select x-on:change="if($event.target.value === 'Otro') { isCustom = true; $wire.set('selections.{{ $index }}.market_name', ''); } else { $wire.set('selections.{{ $index }}.market_name', $event.target.value); }"
+                                    class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-200">
+                                    <option value="">Selecciona un mercado...</option>
+                                    <option value="Ganador (1X2)" :selected="$wire.get('selections.{{ $index }}.market_name') === 'Ganador (1X2)'">Ganador (Línea de Dinero / 1X2)</option>
+                                    <option value="Ambos Anotan" :selected="$wire.get('selections.{{ $index }}.market_name') === 'Ambos Anotan'">Ambos Equipos Anotan (BTTS)</option>
+                                    <option value="Más/Menos Goles" :selected="$wire.get('selections.{{ $index }}.market_name') === 'Más/Menos Goles'">Más/Menos Goles (Over/Under)</option>
+                                    <option value="Más/Menos Puntos" :selected="$wire.get('selections.{{ $index }}.market_name') === 'Más/Menos Puntos'">Más/Menos Goles/Puntos (Over/Under)</option>
+                                    <option value="Hándicap" :selected="$wire.get('selections.{{ $index }}.market_name') === 'Hándicap'">Hándicap (Spread)</option>
+                                    <option value="Otro">Otro (Escribir personalizado...)</option>
+                                </select>
+                            </div>
+                            
+                            <div x-show="isCustom" class="relative">
+                                <input type="text" wire:model.live="selections.{{ $index }}.market_name" placeholder="Ej. Doble Oportunidad, Tiros de Esquina..."
+                                    class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-200 pr-10">
+                                <button type="button" x-on:click="isCustom = false; $wire.set('selections.{{ $index }}.market_name', '');" 
+                                    class="absolute right-3 top-3 text-slate-400 hover:text-white transition" title="Volver a la lista">
+                                    <i class="fa-solid fa-list-ul"></i>
+                                </button>
+                            </div>
+                            
                             @error("selections.{$index}.market_name") <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
 

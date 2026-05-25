@@ -229,4 +229,73 @@ class BetRegistryTest extends TestCase
         $selection->refresh();
         $this->assertEquals(2.10, $selection->odds);
     }
+
+    /**
+     * Test parlay recalculation when selection statuses change.
+     */
+    public function test_parlay_recalculation_on_selection_status_change()
+    {
+        // 1. Create a parlay bet with 2 selections
+        $bet = Bet::create([
+            'user_id' => $this->adminUser->id,
+            'type' => 'parlay',
+            'stake' => 10.00,
+            'odds' => 4.00,
+            'payout' => 0.00,
+            'profit' => 0.00,
+            'status' => 'pending',
+        ]);
+
+        $selection1 = BetSelection::create([
+            'bet_id' => $bet->id,
+            'sport_id' => $this->sport->id,
+            'league_id' => $this->league->id,
+            'market_name' => 'Ambos Anotan',
+            'selection' => 'Sí',
+            'odds' => 2.00,
+            'status' => 'pending',
+        ]);
+
+        $selection2 = BetSelection::create([
+            'bet_id' => $bet->id,
+            'sport_id' => $this->sport->id,
+            'league_id' => $this->league->id,
+            'market_name' => 'Ganador',
+            'selection' => 'Real Madrid',
+            'odds' => 2.00,
+            'status' => 'pending',
+        ]);
+
+        // Reload selections relation
+        $bet->load('selections');
+
+        // 2. Set Selection 1 to won
+        $selection1->update(['status' => 'won']);
+        $bet->recalculate();
+
+        $this->assertEquals('pending', $bet->status);
+        $this->assertEquals(4.00, $bet->odds);
+        $this->assertEquals(0.00, $bet->payout);
+
+        // 3. Set Selection 2 to voided (cancelled)
+        $selection2->update(['status' => 'voided']);
+        $bet->refresh();
+        $bet->recalculate();
+
+        // Parlay should now be WON with odds x2.00, payout $20, profit $10
+        $this->assertEquals('won', $bet->status);
+        $this->assertEquals(2.00, $bet->odds);
+        $this->assertEquals(20.00, floatval($bet->payout));
+        $this->assertEquals(10.00, floatval($bet->profit));
+
+        // 4. Set Selection 1 to lost
+        $selection1->update(['status' => 'lost']);
+        $bet->refresh();
+        $bet->recalculate();
+
+        // Parlay should now be LOST with payout $0, profit -$10
+        $this->assertEquals('lost', $bet->status);
+        $this->assertEquals(0.00, floatval($bet->payout));
+        $this->assertEquals(-10.00, floatval($bet->profit));
+    }
 }
