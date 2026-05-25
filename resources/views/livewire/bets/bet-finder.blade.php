@@ -77,37 +77,24 @@
                         @error('maxOdds') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
-                    <!-- Time Range -->
+                    <!-- Search Date -->
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                            <i class="fa-regular fa-clock mr-1"></i> Ventana de Tiempo
+                            <i class="fa-regular fa-calendar mr-1"></i> Fecha del Partido
                         </label>
-                        <select wire:model.defer="timeRangeHours"
+                        <input type="date" wire:model.defer="searchDate" min="{{ date('Y-m-d') }}"
+                            style="color-scheme: dark;"
                             class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-200">
-                            <option value="3">Próximas 3 horas</option>
-                            <option value="6">Próximas 6 horas</option>
-                            <option value="12">Próximas 12 horas</option>
-                            <option value="24" selected>Próximas 24 horas</option>
-                            <option value="48">Próximas 48 horas</option>
-                            <option value="72">Próximos 3 días</option>
-                            <option value="168">Próxima semana</option>
-                        </select>
-                        @error('timeRangeHours') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        @error('searchDate') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
                     <!-- Result Count -->
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                            <i class="fa-solid fa-list-ol mr-1"></i> Número de Apuestas
+                            <i class="fa-solid fa-list-ol mr-1"></i> Cantidad de Apuestas
                         </label>
-                        <div class="flex items-center gap-3">
-                            <input type="range" wire:model.live="resultCount" min="1" max="10" step="1"
-                                class="flex-1 accent-indigo-500 cursor-pointer">
-                            <span class="text-indigo-400 font-black text-sm w-6 text-center">{{ $resultCount }}</span>
-                        </div>
-                        <div class="flex justify-between text-[10px] text-slate-600 mt-1 px-0.5">
-                            <span>1</span><span>5</span><span>10</span>
-                        </div>
+                        <input type="number" wire:model.defer="resultCount" min="1" max="10" step="1"
+                            class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200">
                         @error('resultCount') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 

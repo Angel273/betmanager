@@ -17,7 +17,7 @@ class BetFinder extends Component
     public $risk = 'segura';
     public $minOdds = '';
     public $maxOdds = '';
-    public $timeRangeHours = 24;  // max hours ahead to look for matches
+    public $searchDate = '';      // specific date to look for matches
     public $resultCount = 3;      // how many bets to suggest
 
     public $suggestions = [];
@@ -32,6 +32,7 @@ class BetFinder extends Component
     public function mount()
     {
         abort_unless(auth()->check(), 403);
+        $this->searchDate = today()->format('Y-m-d');
     }
 
     public function search()
@@ -44,7 +45,7 @@ class BetFinder extends Component
             'risk'          => 'required|in:segura,moderada,improbable',
             'minOdds'       => 'nullable|numeric|min:1.01',
             'maxOdds'       => 'nullable|numeric|gte:minOdds',
-            'timeRangeHours'=> 'required|integer|min:1|max:168',
+            'searchDate'    => 'required|date|after_or_equal:today',
             'resultCount'   => 'required|integer|min:1|max:10',
         ], [
             'risk.required'          => 'El nivel de riesgo es obligatorio.',
@@ -52,8 +53,9 @@ class BetFinder extends Component
             'minOdds.min'            => 'La cuota mínima debe ser al menos 1.01.',
             'maxOdds.numeric'        => 'La cuota máxima debe ser un número.',
             'maxOdds.gte'            => 'La cuota máxima debe ser mayor o igual a la cuota mínima.',
-            'timeRangeHours.min'     => 'El rango mínimo es 1 hora.',
-            'timeRangeHours.max'     => 'El rango máximo es 168 horas (7 días).',
+            'searchDate.required'    => 'La fecha de búsqueda es obligatoria.',
+            'searchDate.date'        => 'La fecha de búsqueda debe ser una fecha válida.',
+            'searchDate.after_or_equal' => 'La fecha de búsqueda debe ser hoy o posterior.',
             'resultCount.min'        => 'Mínimo 1 apuesta.',
             'resultCount.max'        => 'Máximo 10 apuestas.',
         ]);
@@ -65,7 +67,7 @@ class BetFinder extends Component
                 $this->risk,
                 $this->minOdds ? floatval($this->minOdds) : null,
                 $this->maxOdds ? floatval($this->maxOdds) : null,
-                intval($this->timeRangeHours),
+                $this->searchDate,
                 intval($this->resultCount)
             );
             

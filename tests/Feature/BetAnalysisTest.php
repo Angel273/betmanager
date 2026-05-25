@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Models\Sport;
 use App\Models\League;
 use App\Models\BetSelection;
-use App\Livewire\BetAnalyzer;
+use App\Livewire\Dashboard;
 use App\Services\GeminiAnalysisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -91,10 +91,9 @@ class BetAnalysisTest extends TestCase
         ]);
 
         Livewire::actingAs($this->user)
-            ->test(BetAnalyzer::class)
+            ->test(Dashboard::class)
             ->call('analyzeBet', $this->bet->id)
-            ->assertHasNoErrors()
-            ->assertSet('errorMessage', '');
+            ->assertHasNoErrors();
 
         $this->bet->refresh();
         $this->assertNotNull($this->bet->analyzed_at);
@@ -136,7 +135,7 @@ class BetAnalysisTest extends TestCase
         ]);
 
         Livewire::actingAs($this->user)
-            ->test(BetAnalyzer::class)
+            ->test(Dashboard::class)
             ->call('analyzeBet', $this->bet->id)
             ->assertHasNoErrors();
 
@@ -156,9 +155,9 @@ class BetAnalysisTest extends TestCase
         putenv('GEMINI_API_KEY=your-gemini-api-key');
 
         Livewire::actingAs($this->user)
-            ->test(BetAnalyzer::class)
+            ->test(Dashboard::class)
             ->call('analyzeBet', $this->bet->id)
-            ->assertSet('errorMessage', 'La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
+            ->assertSee('Error en el análisis de IA: La API Key de Google AI Studio (Gemini) no está configurada en el archivo .env.');
     }
 
     public function test_suggest_bets_successful()

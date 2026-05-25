@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Bet;
 use App\Models\Sport;
+use App\Services\GeminiAnalysisService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\On;
@@ -18,18 +19,44 @@ class Dashboard extends Component
     public $selectedBetId = null;
     public $customPayout = '';
     public $analyzingBetId = null;
+    
+    // AI Analysis Modal State
+    public $showAiModal = false;
+    public $selectedBetForAnalysis = null;
 
-    #[On('analyzeBet')]
-    public function setAnalyzingBet($betId)
+    public function analyzeBet($betId)
     {
         $this->analyzingBetId = $betId;
+        $this->resetErrorBag();
+
+        try {
+            $bet = Bet::with('selections.sport', 'selections.league', 'selections.teamHome', 'selections.teamAway')->findOrFail($betId);
+            $service = new GeminiAnalysisService();
+            $analysis = $service->analyze($bet);
+
+            $bet->update([
+                'analyzed_at' => now(),
+                'ai_analysis' => $analysis,
+            ]);
+
+            session()->flash('success', 'Apuesta #' . $betId . ' analizada con éxito por la IA.');
+        } catch (\Exception $e) {
+            \Log::error('Error en Dashboard al analizar la apuesta: ' . $e->getMessage(), [
+                'exception' => $e,
+                'bet_id' => $betId
+            ]);
+            session()->flash('error', 'Error en el análisis de IA: ' . $e->getMessage());
+        } finally {
+            $this->analyzingBetId = null;
+        }
     }
 
-    #[On('refreshDashboard')]
-    public function refresh()
+    public function openAiAnalysisModal($betId)
     {
-        $this->analyzingBetId = null;
-        // Re-renders the component when AI analysis finishes
+        $this->selectedBetForAnalysis = Bet::with(['selections.sport', 'selections.league', 'selections.teamHome', 'selections.teamAway'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($betId);
+        $this->showAiModal = true;
     }
 
     public function mount()
