@@ -16,6 +16,10 @@ class GeminiAnalysisService
         $this->apiKey = env('GEMINI_API_KEY');
         // gemini-2.0-flash supports Google Search grounding on paid billing accounts
         $this->model = env('GEMINI_MODEL', 'gemini-2.0-flash');
+
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120);
+        }
     }
 
     /**
@@ -97,7 +101,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::timeout(90)->withHeaders([
                 'Content-Type' => 'application/json'
             ])->post($url, [
                 'contents' => [
@@ -192,7 +196,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::timeout(90)->withHeaders([
                 'Content-Type' => 'application/json'
             ])->post($url, [
                 'contents' => [
@@ -322,7 +326,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::timeout(90)->withHeaders([
                 'Content-Type' => 'application/json'
             ])->post($url, [
                 'contents' => [
@@ -429,7 +433,7 @@ class GeminiAnalysisService
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::timeout(90)->withHeaders([
                 'Content-Type' => 'application/json'
             ])->post($url, [
                 'contents' => [
