@@ -26,6 +26,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/bets/register', BetRegistry::class)->name('bets.register');
+    Route::get('/bets/{bet}/edit', BetRegistry::class)->name('bets.edit');
     Route::get('/bets/finder', \App\Livewire\Bets\BetFinder::class)->name('bets.finder');
     Route::get('/bet-paths', BetPathManager::class)->name('bet-paths');
     Route::post('/logout', [GoogleController::class, 'logout'])->name('logout');

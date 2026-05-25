@@ -407,6 +407,14 @@
                                 </button>
                             @endif
 
+                            <!-- Edit Button -->
+                            <a href="{{ route('bets.edit', $bet->id) }}"
+                                class="py-1.5 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-indigo-500/30 text-slate-300 hover:text-white text-xs font-bold transition duration-200 flex items-center gap-1.5 shrink-0"
+                                title="Editar Apuesta">
+                                <i class="fa-solid fa-pen-to-square text-indigo-400"></i>
+                                <span>Editar</span>
+                            </a>
+
                             @if($bet->status === 'pending')
                                 <!-- Settle Quick Buttons -->
                                 <button wire:click="settleBet({{ $bet->id }}, 'won')"

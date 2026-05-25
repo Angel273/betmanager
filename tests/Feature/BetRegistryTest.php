@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\Sport;
 use App\Models\League;
 use App\Models\Team;
+use App\Models\Bet;
+use App\Models\BetSelection;
 use App\Livewire\Bets\BetRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -178,5 +180,53 @@ class BetRegistryTest extends TestCase
         $this->assertEquals($league->id, $selections[0]['league_id']);
         $this->assertEquals($homeTeam->id, $selections[0]['team_home_id']);
         $this->assertEquals($awayTeam->id, $selections[0]['team_away_id']);
+    }
+
+    /**
+     * Test that user can edit an already registered bet and its selections are updated.
+     */
+    public function test_user_can_edit_existing_bet()
+    {
+        // 1. Create a bet with 1 selection
+        $bet = Bet::create([
+            'user_id' => $this->adminUser->id,
+            'type' => 'single',
+            'stake' => 100.00,
+            'odds' => 1.85,
+            'payout' => 0.00,
+            'profit' => 0.00,
+            'status' => 'pending',
+            'notes' => 'Old note',
+        ]);
+
+        $selection = BetSelection::create([
+            'bet_id' => $bet->id,
+            'sport_id' => $this->sport->id,
+            'league_id' => $this->league->id,
+            'market_name' => 'Ambos Anotan',
+            'selection' => 'Sí',
+            'odds' => 1.85,
+            'status' => 'pending',
+        ]);
+
+        // 2. Perform edit via Livewire BetRegistry
+        Livewire::actingAs($this->adminUser)
+            ->test(BetRegistry::class, ['bet' => $bet])
+            ->assertSet('stake', 100.00)
+            ->assertSet('notes', 'Old note')
+            ->set('stake', 150.00)
+            ->set('notes', 'New note')
+            ->set('selections.0.odds', 2.10)
+            ->call('saveBet')
+            ->assertHasNoErrors();
+
+        // 3. Verify in DB
+        $bet->refresh();
+        $this->assertEquals(150.00, $bet->stake);
+        $this->assertEquals(2.10, $bet->odds);
+        $this->assertEquals('New note', $bet->notes);
+
+        $selection->refresh();
+        $this->assertEquals(2.10, $selection->odds);
     }
 }

@@ -20,6 +20,7 @@ class BetRegistry extends Component
 {
     use WithFileUploads;
 
+    public $editingBet = null;
     public $ticketImage;
     public $type = 'single'; // single, parlay
     public $stake = '';
@@ -52,27 +53,72 @@ class BetRegistry extends Component
     public $teams = [];    // Format: [index => [Team1, Team2]]
     public $players = [];  // Format: [index => [Player1, Player2]]
 
-    public function mount()
+    public function mount(Bet $bet = null)
     {
         // Load initial sports
         $this->sports = Sport::orderBy('name')->get();
         // Load all countries
         $this->allCountries = Country::orderBy('name')->get();
 
-        // Check query parameters for Bet Path link
-        $this->bet_path_id = request()->query('bet_path_id');
-        $this->bet_path_step = request()->query('step');
-        $this->stake = request()->query('stake', '');
+        if ($bet && $bet->exists) {
+            $this->editingBet = $bet;
+            $this->type = $bet->type;
+            $this->stake = $bet->stake;
+            $this->notes = $bet->notes;
+            $this->bet_path_id = $bet->bet_path_id;
+            $this->bet_path_step = $bet->bet_path_step;
 
-        if ($this->bet_path_id) {
-            $path = BetPath::find($this->bet_path_id);
-            if ($path) {
-                $this->betPathName = $path->name . ' (Paso ' . $this->bet_path_step . ')';
+            if ($this->bet_path_id) {
+                $path = BetPath::find($this->bet_path_id);
+                if ($path) {
+                    $this->betPathName = $path->name . ' (Paso ' . $this->bet_path_step . ')';
+                }
             }
-        }
 
-        // Initialize with one selection
-        $this->addSelection();
+            // Load Selections
+            $this->selections = [];
+            foreach ($bet->selections as $index => $sel) {
+                $this->selections[] = [
+                    'id' => $sel->id,
+                    'sport_id' => $sel->sport_id,
+                    'league_id' => $sel->league_id,
+                    'team_home_id' => $sel->team_home_id ?? '',
+                    'team_away_id' => $sel->team_away_id ?? '',
+                    'player_id' => $sel->player_id ?? '',
+                    'market_name' => $sel->market_name,
+                    'selection' => $sel->selection,
+                    'odds' => $sel->odds,
+                ];
+
+                // Load dropdown lists caches
+                $this->leagues[$index] = League::where('sport_id', $sel->sport_id)->orderBy('name')->get();
+                if ($sel->league_id) {
+                    $this->teams[$index] = Team::where('league_id', $sel->league_id)->orderBy('name')->get();
+                } else {
+                    $this->teams[$index] = [];
+                }
+                if ($sel->team_home_id) {
+                    $this->players[$index] = Player::where('team_id', $sel->team_home_id)->orderBy('name')->get();
+                } else {
+                    $this->players[$index] = [];
+                }
+            }
+        } else {
+            // Check query parameters for Bet Path link
+            $this->bet_path_id = request()->query('bet_path_id');
+            $this->bet_path_step = request()->query('step');
+            $this->stake = request()->query('stake', '');
+
+            if ($this->bet_path_id) {
+                $path = BetPath::find($this->bet_path_id);
+                if ($path) {
+                    $this->betPathName = $path->name . ' (Paso ' . $this->bet_path_step . ')';
+                }
+            }
+
+            // Initialize with one selection
+            $this->addSelection();
+        }
     }
 
     public function addSelection()
@@ -210,57 +256,127 @@ class BetRegistry extends Component
 
         $this->validate($rules, $messages);
 
-        // 2. Database transaction to create the bet
+        // 2. Database transaction to save/update the bet
         \DB::transaction(function () {
             $odds = $this->calculatedOdds;
-            $payout = $this->potentialPayout;
 
-            // Create Bet
-            $bet = Bet::create([
-                'user_id' => auth()->id(),
-                'type' => $this->type,
-                'stake' => $this->stake,
-                'odds' => $odds,
-                'payout' => 0.00, // Still pending
-                'profit' => 0.00, // Still pending
-                'status' => 'pending',
-                'bet_path_id' => $this->bet_path_id,
-                'bet_path_step' => $this->bet_path_step,
-                'notes' => $this->notes,
-            ]);
+            if ($this->editingBet) {
+                // Settle recalculation based on status
+                $status = $this->editingBet->status;
+                $payout = 0.00;
+                $profit = 0.00;
+                if ($status === 'pending') {
+                    $payout = 0.00;
+                    $profit = 0.00;
+                } elseif ($status === 'won') {
+                    $payout = $this->stake * $odds;
+                    $profit = $payout - $this->stake;
+                } elseif ($status === 'lost') {
+                    $payout = 0.00;
+                    $profit = -$this->stake;
+                } elseif ($status === 'voided') {
+                    $payout = $this->stake;
+                    $profit = 0.00;
+                } elseif ($status === 'half_won') {
+                    $payout = $this->stake * (($odds - 1) / 2 + 1);
+                    $profit = $payout - $this->stake;
+                } elseif ($status === 'half_lost') {
+                    $payout = $this->stake / 2;
+                    $profit = $payout - $this->stake;
+                }
 
-            // Create Selections
-            foreach ($this->selections as $sel) {
-                BetSelection::create([
-                    'bet_id' => $bet->id,
-                    'sport_id' => $sel['sport_id'],
-                    'league_id' => $sel['league_id'],
-                    'team_home_id' => $sel['team_home_id'] ?: null,
-                    'team_away_id' => $sel['team_away_id'] ?: null,
-                    'player_id' => $sel['player_id'] ?: null,
-                    'market_name' => trim($sel['market_name']),
-                    'selection' => trim($sel['selection']),
-                    'odds' => $sel['odds'],
-                    'status' => 'pending',
+                // Update Bet
+                $this->editingBet->update([
+                    'type' => $this->type,
+                    'stake' => $this->stake,
+                    'odds' => $odds,
+                    'payout' => $payout,
+                    'profit' => $profit,
+                    'notes' => $this->notes,
                 ]);
-            }
 
-            // 3. Link back to Bet Path Step if applicable
-            if ($this->bet_path_id && $this->bet_path_step) {
-                $step = BetPathStep::where('bet_path_id', $this->bet_path_id)
-                    ->where('step_number', $this->bet_path_step)
-                    ->first();
+                // Sync Selections
+                $existingSelectionIds = $this->editingBet->selections->pluck('id')->toArray();
+                $submittedSelectionIds = [];
+                foreach ($this->selections as $sel) {
+                    if (!empty($sel['id'])) {
+                        $submittedSelectionIds[] = $sel['id'];
+                    }
+                }
+                $idsToDelete = array_diff($existingSelectionIds, $submittedSelectionIds);
+                BetSelection::whereIn('id', $idsToDelete)->delete();
 
-                if ($step) {
-                    $step->update([
+                foreach ($this->selections as $sel) {
+                    $selData = [
+                        'sport_id' => $sel['sport_id'],
+                        'league_id' => $sel['league_id'],
+                        'team_home_id' => $sel['team_home_id'] ?: null,
+                        'team_away_id' => $sel['team_away_id'] ?: null,
+                        'player_id' => $sel['player_id'] ?: null,
+                        'market_name' => trim($sel['market_name']),
+                        'selection' => trim($sel['selection']),
+                        'odds' => $sel['odds'],
+                    ];
+
+                    if (!empty($sel['id'])) {
+                        BetSelection::where('id', $sel['id'])->update($selData);
+                    } else {
+                        $selData['bet_id'] = $this->editingBet->id;
+                        $selData['status'] = 'pending';
+                        BetSelection::create($selData);
+                    }
+                }
+
+            } else {
+                $payout = $this->potentialPayout;
+
+                // Create Bet
+                $bet = Bet::create([
+                    'user_id' => auth()->id(),
+                    'type' => $this->type,
+                    'stake' => $this->stake,
+                    'odds' => $odds,
+                    'payout' => 0.00, // Still pending
+                    'profit' => 0.00, // Still pending
+                    'status' => 'pending',
+                    'bet_path_id' => $this->bet_path_id,
+                    'bet_path_step' => $this->bet_path_step,
+                    'notes' => $this->notes,
+                ]);
+
+                // Create Selections
+                foreach ($this->selections as $sel) {
+                    BetSelection::create([
                         'bet_id' => $bet->id,
+                        'sport_id' => $sel['sport_id'],
+                        'league_id' => $sel['league_id'],
+                        'team_home_id' => $sel['team_home_id'] ?: null,
+                        'team_away_id' => $sel['team_away_id'] ?: null,
+                        'player_id' => $sel['player_id'] ?: null,
+                        'market_name' => trim($sel['market_name']),
+                        'selection' => trim($sel['selection']),
+                        'odds' => $sel['odds'],
                         'status' => 'pending',
                     ]);
+                }
+
+                // 3. Link back to Bet Path Step if applicable
+                if ($this->bet_path_id && $this->bet_path_step) {
+                    $step = BetPathStep::where('bet_path_id', $this->bet_path_id)
+                        ->where('step_number', $this->bet_path_step)
+                        ->first();
+
+                    if ($step) {
+                        $step->update([
+                            'bet_id' => $bet->id,
+                            'status' => 'pending',
+                        ]);
+                    }
                 }
             }
         });
 
-        session()->flash('success', 'Apuesta registrada con éxito.');
+        session()->flash('success', $this->editingBet ? 'Apuesta actualizada con éxito.' : 'Apuesta registrada con éxito.');
         
         if ($this->bet_path_id) {
             return redirect()->route('bet-paths');
