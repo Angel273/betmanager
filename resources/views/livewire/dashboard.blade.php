@@ -222,6 +222,7 @@
                     <i class="fa-solid fa-shield-halved text-indigo-400/50"></i>
                     <span>Tus datos y registros están guardados localmente.</span>
                 </div>
+            </div>
         </div>
     </div>
 
