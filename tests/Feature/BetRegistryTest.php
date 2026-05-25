@@ -100,4 +100,83 @@ class BetRegistryTest extends TestCase
             'name' => 'FC Barcelona',
         ]);
     }
+
+    /**
+     * Test that missing entities fallback modal can save new country, league, and teams,
+     * and correctly populates them back into the selections array.
+     */
+    public function test_save_missing_entities_creates_records_and_populates_selections()
+    {
+        $testResult = Livewire::actingAs($this->adminUser)
+            ->test(BetRegistry::class)
+            ->set('tempSelections', [
+                [
+                    'sport_id' => $this->sport->id,
+                    'league_id' => '',
+                    'team_home_id' => '',
+                    'team_away_id' => '',
+                    'player_id' => '',
+                    'market_name' => 'Ambos Anotan',
+                    'selection' => 'Sí',
+                    'odds' => 1.85,
+                ]
+            ])
+            ->set('missingEntities', [
+                [
+                    'index' => 0,
+                    'sport_id' => $this->sport->id,
+                    'sport_name' => 'Fútbol',
+                    'league_exists' => false,
+                    'league_id' => null,
+                    'league_name' => 'Serie A',
+                    'country_id' => 'new',
+                    'country_name' => 'Italia',
+                    'new_country_name' => 'Italia',
+                    'home_team_exists' => false,
+                    'home_team_id' => null,
+                    'home_team_name' => 'Juventus',
+                    'away_team_exists' => false,
+                    'away_team_id' => null,
+                    'away_team_name' => 'Inter Milan',
+                    'market_name' => 'Ambos Anotan',
+                    'selection' => 'Sí',
+                    'odds' => 1.85,
+                ]
+            ])
+            ->set('showMissingEntitiesModal', true)
+            ->call('saveMissingEntities')
+            ->assertHasNoErrors()
+            ->assertSet('showMissingEntitiesModal', false)
+            ->assertSet('missingEntities', [])
+            ->assertSet('tempSelections', []);
+
+        // Assert records exist in DB
+        $this->assertDatabaseHas('countries', ['name' => 'Italia']);
+        $country = \App\Models\Country::where('name', 'Italia')->first();
+        $this->assertNotNull($country);
+
+        $this->assertDatabaseHas('leagues', [
+            'name' => 'Serie A',
+            'sport_id' => $this->sport->id,
+            'country_id' => $country->id
+        ]);
+        $league = League::where('name', 'Serie A')->first();
+        $this->assertNotNull($league);
+
+        $this->assertDatabaseHas('teams', ['name' => 'Juventus', 'league_id' => $league->id]);
+        $homeTeam = Team::where('name', 'Juventus')->first();
+        $this->assertNotNull($homeTeam);
+
+        $this->assertDatabaseHas('teams', ['name' => 'Inter Milan', 'league_id' => $league->id]);
+        $awayTeam = Team::where('name', 'Inter Milan')->first();
+        $this->assertNotNull($awayTeam);
+
+        // Assert selections are populated with created IDs
+        $selections = $testResult->get('selections');
+        $this->assertCount(1, $selections);
+        $this->assertEquals($this->sport->id, $selections[0]['sport_id']);
+        $this->assertEquals($league->id, $selections[0]['league_id']);
+        $this->assertEquals($homeTeam->id, $selections[0]['team_home_id']);
+        $this->assertEquals($awayTeam->id, $selections[0]['team_away_id']);
+    }
 }

@@ -168,7 +168,7 @@ class GeminiAnalysisService
         $imageData = base64_encode(file_get_contents($imagePath));
         $mimeType = mime_content_type($imagePath);
 
-        $prompt = "Analiza la captura de pantalla del ticket de apuestas deportiva adjunto. Extrae el monto apostado (stake), la cuota total, el tipo de apuesta ('single' o 'parlay') y la lista de selecciones. Para cada selección, identifica el deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo), el equipo local (home_team), el equipo visitante (away_team), la selección realizada (qué se apostó, ej: 'Real Madrid', 'Más de 2.5', 'Lakers -5.5'), el mercado (ej: 'Ganador', 'Total de Goles', 'Hándicap') y la cuota individual de la selección.\n\n";
+        $prompt = "Analiza la captura de pantalla del ticket de apuestas deportiva adjunto. Extrae el monto apostado (stake), la cuota total, el tipo de apuesta ('single' o 'parlay') y la lista de selecciones. Para cada selección, identifica el deporte (Fútbol, Básquetbol, Béisbol, Hockey sobre Hielo), la liga (league) (ej: LaLiga, Premier League, NBA, Champions League), el país de la liga (league_country) (ej: España, Inglaterra, Estados Unidos, Internacional), el equipo local (home_team), el equipo visitante (away_team), la selección realizada (qué se apostó, ej: 'Real Madrid', 'Más de 2.5', 'Lakers -5.5'), el mercado (ej: 'Ganador', 'Total de Goles', 'Hándicap') y la cuota individual de la selección. Si algún dato no se visualiza pero es deducible (por ejemplo, el país para 'LaLiga' es 'España', o el país de los equipos), dedúcelo y agrégalo.\n\n";
         $prompt .= "IMPORTANTE: Tu respuesta debe ser EXCLUSIVAMENTE un objeto JSON válido. No envíes bloques de código con markdown como ```json ... ```, simplemente retorna el texto del JSON con esta estructura exacta:\n";
         $prompt .= "{\n";
         $prompt .= "  \"type\": \"single|parlay\",\n";
@@ -177,6 +177,8 @@ class GeminiAnalysisService
         $prompt .= "  \"selections\": [\n";
         $prompt .= "    {\n";
         $prompt .= "      \"sport\": \"Fútbol|Básquetbol|Béisbol|Hockey sobre Hielo\",\n";
+        $prompt .= "      \"league\": \"Nombre de la liga (ej: Premier League, NBA, La Liga, Copa Libertadores)\",\n";
+        $prompt .= "      \"league_country\": \"Nombre del país de la liga (ej: España, Inglaterra, Estados Unidos, Internacional)\",\n";
         $prompt .= "      \"home_team\": \"Nombre del equipo local en inglés o español\",\n";
         $prompt .= "      \"away_team\": \"Nombre del equipo visitante\",\n";
         $prompt .= "      \"market_name\": \"Nombre del mercado traducido al español estándar (ej: Ambos Anotan, Ganador, Más/Menos Goles, Hándicap, Total de Tiros, Tiros a Puerta)\",\n";
@@ -286,6 +288,13 @@ class GeminiAnalysisService
         $prompt .= "- Nivel de riesgo sugerido: '{$risk}' (puede ser 'segura', 'moderada' o 'improbable')\n";
         $prompt .= "- Rango de cuotas: {$oddsFilter}\n\n";
         $prompt .= "RESTRICCIONES DE CATEGORÍA (MUY IMPORTANTE - exclúyelas sin excepción):\n";
+        
+        // Fetch blacklisted leagues
+        $blacklisted = \App\Models\BlacklistedLeague::pluck('name')->toArray();
+        if (!empty($blacklisted)) {
+            $prompt .= "- EXCLUYE estrictamente y sin excepciones las siguientes ligas: " . implode(', ', $blacklisted) . ".\n";
+        }
+
         $prompt .= "- Para competiciones de CLUBES: únicamente primera división (ej: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, MLS, Liga MX, etc.) o segunda división (ej: Championship, Serie B, Segunda División, etc.). Excluye absolutamente cualquier liga de tercera división o inferior.\n";
         $prompt .= "- Para competiciones INTERNACIONALES/SELECCIONES: únicamente categoría absoluta (senior) o Sub-21 (U21) como máximo. Excluye Sub-20, Sub-17, Sub-15 y cualquier categoría juvenil inferior a U21.\n";
         $prompt .= "- Excluye también ligas regionales, amateur, reservas, filiales y competiciones universitarias.\n\n";

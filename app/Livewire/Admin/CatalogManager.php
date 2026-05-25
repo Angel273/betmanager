@@ -8,6 +8,7 @@ use App\Models\Sport;
 use App\Models\League;
 use App\Models\Team;
 use App\Models\Player;
+use App\Models\BlacklistedLeague;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -39,6 +40,8 @@ class CatalogManager extends Component
     // Player
     public $player_name = '';
     public $player_team_id = '';
+    // Blacklisted League
+    public $blacklist_league_name = '';
 
     public function mount()
     {
@@ -70,7 +73,8 @@ class CatalogManager extends Component
             'sport_name', 'sport_icon',
             'league_name', 'league_sport_id', 'league_country_id',
             'team_name', 'team_league_id',
-            'player_name', 'player_team_id'
+            'player_name', 'player_team_id',
+            'blacklist_league_name'
         ]);
         $this->resetErrorBag();
     }
@@ -366,6 +370,40 @@ class CatalogManager extends Component
         $this->resetForms();
     }
 
+    // ==========================================
+    // BLACKLISTED LEAGUE CRUD
+    // ==========================================
+    public function saveBlacklistedLeague()
+    {
+        if ($this->isEditMode) {
+            $this->validate(['blacklist_league_name' => 'required|string|unique:blacklisted_leagues,name,' . $this->selectedId]);
+            $item = BlacklistedLeague::findOrFail($this->selectedId);
+            $item->update(['name' => trim($this->blacklist_league_name)]);
+            session()->flash('success', 'Liga en lista negra actualizada con éxito.');
+        } else {
+            $this->validate(['blacklist_league_name' => 'required|string|unique:blacklisted_leagues,name']);
+            BlacklistedLeague::create(['name' => trim($this->blacklist_league_name)]);
+            session()->flash('success', 'Liga agregada a la lista negra con éxito.');
+        }
+        $this->resetForms();
+    }
+
+    public function editBlacklistedLeague($id)
+    {
+        $this->resetForms();
+        $item = BlacklistedLeague::findOrFail($id);
+        $this->selectedId = $item->id;
+        $this->blacklist_league_name = $item->name;
+        $this->isEditMode = true;
+    }
+
+    public function deleteBlacklistedLeague($id)
+    {
+        BlacklistedLeague::findOrFail($id)->delete();
+        session()->flash('success', 'Liga removida de la lista negra.');
+        $this->resetForms();
+    }
+
     public function render()
     {
         $data = [];
@@ -422,6 +460,11 @@ class CatalogManager extends Component
                     ->orWhereHas('team', function ($q) use ($searchQuery) {
                         $q->where('name', 'like', $searchQuery);
                     })
+                    ->orderBy('name')
+                    ->paginate(10);
+                break;
+            case 'blacklist':
+                $data['items'] = BlacklistedLeague::where('name', 'like', $searchQuery)
                     ->orderBy('name')
                     ->paginate(10);
                 break;

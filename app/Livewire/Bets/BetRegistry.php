@@ -10,6 +10,8 @@ use App\Models\Sport;
 use App\Models\League;
 use App\Models\Team;
 use App\Models\Player;
+use App\Models\Country;
+use App\Models\Region;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use App\Services\GeminiAnalysisService;
@@ -30,6 +32,12 @@ class BetRegistry extends Component
     public $quickTeamSelectionIndex = null;
     public $quickTeamField = '';
 
+    // Missing entities fallback properties
+    public $showMissingEntitiesModal = false;
+    public $missingEntities = [];
+    public $allCountries = [];
+    public $tempSelections = [];
+
     // Linked Bet Path properties
     public $bet_path_id = null;
     public $bet_path_step = null;
@@ -48,6 +56,8 @@ class BetRegistry extends Component
     {
         // Load initial sports
         $this->sports = Sport::orderBy('name')->get();
+        // Load all countries
+        $this->allCountries = Country::orderBy('name')->get();
 
         // Check query parameters for Bet Path link
         $this->bet_path_id = request()->query('bet_path_id');
@@ -331,78 +341,156 @@ class BetRegistry extends Component
             }
 
             // 2. Clear current selections and populate with parsed ones
+            $this->tempSelections = [];
             $this->selections = [];
             $this->leagues = [];
             $this->teams = [];
             $this->players = [];
 
+            $missingEntities = [];
+
             if (isset($parsedData['selections']) && is_array($parsedData['selections'])) {
                 foreach ($parsedData['selections'] as $index => $parsedSel) {
-                    $sportId = '';
-                    $leagueId = '';
-                    $teamHomeId = '';
-                    $teamAwayId = '';
-
-                    // Match Sport
+                    $sport = null;
                     if (!empty($parsedSel['sport'])) {
                         $sport = Sport::where('name', 'like', '%' . $parsedSel['sport'] . '%')->first();
-                        if ($sport) {
-                            $sportId = $sport->id;
+                    }
+                    if (!$sport) {
+                        $sport = Sport::where('name', 'Fútbol')->first() ?? Sport::first();
+                    }
+                    $sportId = $sport->id;
+
+                    // Match League
+                    $league = null;
+                    if (!empty($parsedSel['league'])) {
+                        $league = League::where('sport_id', $sportId)
+                            ->whereRaw('LOWER(name) = ?', [strtolower(trim($parsedSel['league']))])
+                            ->first();
+                        if (!$league) {
+                            $league = League::where('sport_id', $sportId)
+                                ->where('name', 'like', '%' . trim($parsedSel['league']) . '%')
+                                ->first();
                         }
                     }
 
-                    // Match Teams and Leagues (Only if sport was matched)
-                    if ($sportId) {
-                        // Let's load the leagues for this sport to help in matching
-                        $this->leagues[$index] = League::where('sport_id', $sportId)->get();
-
-                        // Try to find the teams in our DB
-                        $homeTeam = null;
-                        $awayTeam = null;
-
-                        if (!empty($parsedSel['home_team'])) {
-                            $homeTeam = Team::where('name', 'like', '%' . $parsedSel['home_team'] . '%')
-                                ->whereHas('league', function ($q) use ($sportId) {
-                                    $q->where('sport_id', $sportId);
-                                })->first();
+                    // Match Teams
+                    $homeTeam = null;
+                    if (!empty($parsedSel['home_team'])) {
+                        if ($league) {
+                            $homeTeam = Team::where('league_id', $league->id)
+                                ->whereRaw('LOWER(name) = ?', [strtolower(trim($parsedSel['home_team']))])
+                                ->first();
+                            if (!$homeTeam) {
+                                $homeTeam = Team::where('league_id', $league->id)
+                                    ->where('name', 'like', '%' . trim($parsedSel['home_team']) . '%')
+                                    ->first();
+                            }
+                        } else {
+                            $homeTeam = Team::whereHas('league', function ($q) use ($sportId) {
+                                $q->where('sport_id', $sportId);
+                            })
+                            ->whereRaw('LOWER(name) = ?', [strtolower(trim($parsedSel['home_team']))])
+                            ->first();
                         }
+                    }
 
-                        if (!empty($parsedSel['away_team'])) {
-                            $awayTeam = Team::where('name', 'like', '%' . $parsedSel['away_team'] . '%')
-                                ->whereHas('league', function ($q) use ($sportId) {
-                                    $q->where('sport_id', $sportId);
-                                })->first();
+                    $awayTeam = null;
+                    if (!empty($parsedSel['away_team'])) {
+                        if ($league) {
+                            $awayTeam = Team::where('league_id', $league->id)
+                                ->whereRaw('LOWER(name) = ?', [strtolower(trim($parsedSel['away_team']))])
+                                ->first();
+                            if (!$awayTeam) {
+                                $awayTeam = Team::where('league_id', $league->id)
+                                    ->where('name', 'like', '%' . trim($parsedSel['away_team']) . '%')
+                                    ->first();
+                            }
+                        } else {
+                            $awayTeam = Team::whereHas('league', function ($q) use ($sportId) {
+                                $q->where('sport_id', $sportId);
+                            })
+                            ->whereRaw('LOWER(name) = ?', [strtolower(trim($parsedSel['away_team']))])
+                            ->first();
                         }
+                    }
 
-                        if ($homeTeam) {
-                            $teamHomeId = $homeTeam->id;
-                            $leagueId = $homeTeam->league_id;
+                    // Fallback matching league if team is found
+                    if ($homeTeam && !$league) {
+                        $league = $homeTeam->league;
+                    }
+                    if ($awayTeam && !$league) {
+                        $league = $awayTeam->league;
+                    }
+
+                    // Re-check teams if league was newly resolved here!
+                    if ($league) {
+                        if (!$homeTeam && !empty($parsedSel['home_team'])) {
+                            $homeTeam = Team::where('league_id', $league->id)
+                                ->where('name', 'like', '%' . trim($parsedSel['home_team']) . '%')
+                                ->first();
                         }
-                        if ($awayTeam) {
-                            $teamAwayId = $awayTeam->id;
-                            if (!$leagueId) {
-                                $leagueId = $awayTeam->league_id;
+                        if (!$awayTeam && !empty($parsedSel['away_team'])) {
+                            $awayTeam = Team::where('league_id', $league->id)
+                                ->where('name', 'like', '%' . trim($parsedSel['away_team']) . '%')
+                                ->first();
+                        }
+                    }
+
+                    $leagueId = $league ? $league->id : null;
+                    $teamHomeId = $homeTeam ? $homeTeam->id : null;
+                    $teamAwayId = $awayTeam ? $awayTeam->id : null;
+
+                    // If league or teams are missing
+                    $isLeagueMissing = !$league;
+                    $isHomeTeamMissing = !$homeTeam && !empty($parsedSel['home_team']);
+                    $isAwayTeamMissing = !$awayTeam && !empty($parsedSel['away_team']);
+
+                    if ($isLeagueMissing || $isHomeTeamMissing || $isAwayTeamMissing) {
+                        // Match country if league is missing
+                        $matchedCountryId = '';
+                        $parsedCountryName = $parsedSel['league_country'] ?? '';
+                        if (!empty($parsedCountryName)) {
+                            $matchedCountry = Country::whereRaw('LOWER(name) = ?', [strtolower(trim($parsedCountryName))])->first();
+                            if (!$matchedCountry) {
+                                $matchedCountry = Country::where('name', 'like', '%' . trim($parsedCountryName) . '%')->first();
+                            }
+                            if ($matchedCountry) {
+                                $matchedCountryId = $matchedCountry->id;
                             }
                         }
 
-                        // Load select lists for this selection
-                        if ($leagueId) {
-                            $this->teams[$index] = Team::where('league_id', $leagueId)->orderBy('name')->get();
-                        } else {
-                            $this->teams[$index] = [];
-                        }
-                    } else {
-                        $this->leagues[$index] = [];
-                        $this->teams[$index] = [];
+                        $missingEntities[] = [
+                            'index' => $index,
+                            'sport_id' => $sportId,
+                            'sport_name' => $sport->name,
+                            
+                            'league_exists' => !$isLeagueMissing,
+                            'league_id' => $leagueId,
+                            'league_name' => $isLeagueMissing ? ($parsedSel['league'] ?? '') : ($league ? $league->name : ''),
+                            
+                            'country_id' => $matchedCountryId,
+                            'country_name' => $parsedCountryName,
+                            'new_country_name' => '',
+                            
+                            'home_team_exists' => !$isHomeTeamMissing,
+                            'home_team_id' => $teamHomeId,
+                            'home_team_name' => $isHomeTeamMissing ? ($parsedSel['home_team'] ?? '') : ($homeTeam ? $homeTeam->name : ''),
+                            
+                            'away_team_exists' => !$isAwayTeamMissing,
+                            'away_team_id' => $teamAwayId,
+                            'away_team_name' => $isAwayTeamMissing ? ($parsedSel['away_team'] ?? '') : ($awayTeam ? $awayTeam->name : ''),
+
+                            'market_name' => $parsedSel['market_name'] ?? '',
+                            'selection' => $parsedSel['selection'] ?? '',
+                            'odds' => $parsedSel['odds'] ?? '',
+                        ];
                     }
 
-                    $this->players[$index] = [];
-
-                    $this->selections[] = [
+                    $this->tempSelections[] = [
                         'sport_id' => $sportId,
-                        'league_id' => $leagueId,
-                        'team_home_id' => $teamHomeId,
-                        'team_away_id' => $teamAwayId,
+                        'league_id' => $leagueId ?? '',
+                        'team_home_id' => $teamHomeId ?? '',
+                        'team_away_id' => $teamAwayId ?? '',
                         'player_id' => '',
                         'market_name' => $parsedSel['market_name'] ?? '',
                         'selection' => $parsedSel['selection'] ?? '',
@@ -411,7 +499,33 @@ class BetRegistry extends Component
                 }
             }
 
-            session()->flash('success', 'Ticket de apuestas escaneado y procesado con éxito por Gemini. Por favor revisa los datos antes de guardar.');
+            if (empty($missingEntities)) {
+                $this->selections = $this->tempSelections;
+                
+                // Load select lists for each selection
+                foreach ($this->selections as $index => $sel) {
+                    $sportId = $sel['sport_id'];
+                    $leagueId = $sel['league_id'];
+                    
+                    if ($sportId) {
+                        $this->leagues[$index] = League::where('sport_id', $sportId)->orderBy('name')->get();
+                    } else {
+                        $this->leagues[$index] = [];
+                    }
+                    if ($leagueId) {
+                        $this->teams[$index] = Team::where('league_id', $leagueId)->orderBy('name')->get();
+                    } else {
+                        $this->teams[$index] = [];
+                    }
+                    $this->players[$index] = [];
+                }
+                
+                session()->flash('success', 'Ticket de apuestas escaneado y procesado con éxito por Gemini. Por favor revisa los datos antes de guardar.');
+            } else {
+                $this->missingEntities = $missingEntities;
+                $this->showMissingEntitiesModal = true;
+            }
+
         } catch (\Exception $e) {
             \Log::error('Error en updatedTicketImage del Livewire BetRegistry: ' . $e->getMessage(), [
                 'exception' => $e,
@@ -421,6 +535,128 @@ class BetRegistry extends Component
         } finally {
             $this->ticketImage = null; // Reset file input
         }
+    }
+
+    public function saveMissingEntities()
+    {
+        // 1. Validation
+        foreach ($this->missingEntities as $idx => $missing) {
+            if (!$missing['league_exists']) {
+                if (empty(trim($missing['league_name']))) {
+                    $this->addError("missingEntities.{$idx}.league_name", 'El nombre de la liga es obligatorio.');
+                    return;
+                }
+                if ($missing['country_id'] === 'new' && empty(trim($missing['new_country_name']))) {
+                    $this->addError("missingEntities.{$idx}.new_country_name", 'El nombre del país es obligatorio.');
+                    return;
+                }
+            }
+            if (!$missing['home_team_exists'] && !empty($missing['home_team_name']) && empty(trim($missing['home_team_name']))) {
+                $this->addError("missingEntities.{$idx}.home_team_name", 'El nombre del equipo local es obligatorio.');
+                return;
+            }
+            if (!$missing['away_team_exists'] && !empty($missing['away_team_name']) && empty(trim($missing['away_team_name']))) {
+                $this->addError("missingEntities.{$idx}.away_team_name", 'El nombre del equipo visitante es obligatorio.');
+                return;
+            }
+        }
+
+        \DB::transaction(function () {
+            foreach ($this->missingEntities as $idx => &$missing) {
+                $sportId = $missing['sport_id'];
+                $leagueId = $missing['league_id'];
+
+                // Create Country if new
+                $countryId = $missing['country_id'];
+                if ($countryId === 'new') {
+                    $region = Region::where('name', 'Internacional')->first() ?? Region::first();
+                    if (!$region) {
+                        $region = Region::create(['name' => 'Internacional']);
+                    }
+                    $country = Country::create([
+                        'name' => trim($missing['new_country_name']),
+                        'region_id' => $region->id
+                    ]);
+                    $countryId = $country->id;
+                } elseif (empty($countryId)) {
+                    $countryId = null;
+                }
+
+                // Create League if not exists
+                if (!$missing['league_exists']) {
+                    $league = League::create([
+                        'name' => trim($missing['league_name']),
+                        'sport_id' => $sportId,
+                        'country_id' => $countryId,
+                    ]);
+                    $leagueId = $league->id;
+                    $missing['league_id'] = $leagueId;
+                    $missing['league_exists'] = true;
+                }
+
+                // Create Home Team if not exists and we have a name
+                $homeTeamId = $missing['home_team_id'];
+                if (!$missing['home_team_exists'] && !empty(trim($missing['home_team_name']))) {
+                    $team = Team::create([
+                        'name' => trim($missing['home_team_name']),
+                        'league_id' => $leagueId
+                    ]);
+                    $homeTeamId = $team->id;
+                    $missing['home_team_id'] = $homeTeamId;
+                    $missing['home_team_exists'] = true;
+                }
+
+                // Create Away Team if not exists and we have a name
+                $awayTeamId = $missing['away_team_id'];
+                if (!$missing['away_team_exists'] && !empty(trim($missing['away_team_name']))) {
+                    $team = Team::create([
+                        'name' => trim($missing['away_team_name']),
+                        'league_id' => $leagueId
+                    ]);
+                    $awayTeamId = $team->id;
+                    $missing['away_team_id'] = $awayTeamId;
+                    $missing['away_team_exists'] = true;
+                }
+
+                // Update tempSelections with newly created IDs
+                $selIndex = $missing['index'];
+                $this->tempSelections[$selIndex]['league_id'] = $leagueId;
+                $this->tempSelections[$selIndex]['team_home_id'] = $homeTeamId ?? '';
+                $this->tempSelections[$selIndex]['team_away_id'] = $awayTeamId ?? '';
+            }
+        });
+
+        // 2. Set selections to tempSelections
+        $this->selections = $this->tempSelections;
+
+        // 3. Load select lists caches
+        foreach ($this->selections as $index => $sel) {
+            $sportId = $sel['sport_id'];
+            $leagueId = $sel['league_id'];
+
+            if ($sportId) {
+                $this->leagues[$index] = League::where('sport_id', $sportId)->orderBy('name')->get();
+            } else {
+                $this->leagues[$index] = [];
+            }
+
+            if ($leagueId) {
+                $this->teams[$index] = Team::where('league_id', $leagueId)->orderBy('name')->get();
+            } else {
+                $this->teams[$index] = [];
+            }
+            $this->players[$index] = [];
+        }
+
+        // 4. Refresh all countries in case a new country was added
+        $this->allCountries = Country::orderBy('name')->get();
+
+        // 5. Close modal & cleanup
+        $this->showMissingEntitiesModal = false;
+        $this->missingEntities = [];
+        $this->tempSelections = [];
+
+        session()->flash('success', 'Entidades creadas en base de datos y pre-seleccionadas correctamente.');
     }
 
     public function render()

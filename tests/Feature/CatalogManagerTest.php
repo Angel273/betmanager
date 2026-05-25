@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Sport;
 use App\Models\League;
 use App\Models\Team;
+use App\Models\BlacklistedLeague;
 use App\Livewire\Admin\CatalogManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -83,5 +84,39 @@ class CatalogManagerTest extends TestCase
 
         $this->assertEquals(2, Team::where('league_id', $this->league->id)->count());
         $this->assertDatabaseHas('teams', ['name' => 'FC Barcelona', 'league_id' => $this->league->id]);
+    }
+
+    /**
+     * Test blacklist CRUD operations.
+     */
+    public function test_admin_can_manage_blacklisted_leagues()
+    {
+        // Create
+        $comp = Livewire::actingAs($this->adminUser)
+            ->test(CatalogManager::class)
+            ->set('activeTab', 'blacklist')
+            ->set('blacklist_league_name', 'U17 Premier League')
+            ->call('saveBlacklistedLeague')
+            ->assertHasNoErrors()
+            ->assertSet('blacklist_league_name', '');
+
+        $this->assertDatabaseHas('blacklisted_leagues', ['name' => 'U17 Premier League']);
+        $blacklisted = BlacklistedLeague::where('name', 'U17 Premier League')->first();
+
+        // Edit
+        $comp->call('editBlacklistedLeague', $blacklisted->id)
+            ->assertSet('blacklist_league_name', 'U17 Premier League')
+            ->set('blacklist_league_name', 'U18 Premier League')
+            ->call('saveBlacklistedLeague')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('blacklisted_leagues', ['name' => 'U18 Premier League']);
+        $this->assertDatabaseMissing('blacklisted_leagues', ['name' => 'U17 Premier League']);
+
+        // Delete
+        $comp->call('deleteBlacklistedLeague', $blacklisted->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('blacklisted_leagues', ['name' => 'U18 Premier League']);
     }
 }

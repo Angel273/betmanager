@@ -363,4 +363,123 @@
             </div>
         </div>
     @endif
+
+    <!-- Missing Entities Modal -->
+    @if($showMissingEntitiesModal && !empty($missingEntities))
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="w-full max-w-2xl rounded-2xl glassmorphism p-6 relative flex flex-col max-h-[90vh]">
+                <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+
+                <div class="flex justify-between items-center pb-3 border-b border-slate-800 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                        <h3 class="text-lg font-bold text-white">Completar Datos Faltantes</h3>
+                    </div>
+                    <button type="button" wire:click="$set('showMissingEntitiesModal', false)" class="text-slate-500 hover:text-white">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto my-4 py-2 pr-1 space-y-6 flex-1">
+                    <p class="text-slate-400 text-xs leading-relaxed">
+                        Gemini detectó equipos o ligas que no existen en nuestra base de datos. Completa o edita los nombres y el país de la liga antes de registrarlos automáticamente.
+                    </p>
+
+                    @foreach($missingEntities as $idx => $missing)
+                        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-800/60 pb-2">
+                                <span class="text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                                    Selección #{{ $missing['index'] + 1 }} ({{ $missing['sport_name'] }})
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- League Fields -->
+                                @if(!$missing['league_exists'])
+                                    <div class="md:col-span-2 p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 space-y-3">
+                                        <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider">Nueva Liga</h4>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre de Liga</label>
+                                                <input type="text" wire:model.defer="missingEntities.{{ $idx }}.league_name"
+                                                    class="w-full bg-slate-950/85 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition duration-150">
+                                                @error("missingEntities.{$idx}.league_name") <span class="text-red-400 text-[10px] mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">País</label>
+                                                <select wire:model.live="missingEntities.{{ $idx }}.country_id"
+                                                    class="w-full bg-slate-950/85 border border-slate-800 rounded-lg py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-150">
+                                                    <option value="">Selecciona país...</option>
+                                                    @foreach($allCountries as $c)
+                                                        <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                                    @endforeach
+                                                    <option value="new">+ Crear otro país...</option>
+                                                </select>
+                                            </div>
+                                            
+                                            @if(($missingEntities[$idx]['country_id'] ?? '') === 'new')
+                                                <div class="md:col-span-2">
+                                                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nuevo País</label>
+                                                    <input type="text" wire:model.defer="missingEntities.{{ $idx }}.new_country_name" placeholder="Ej. Alemania, Colombia"
+                                                        class="w-full bg-slate-950/85 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition duration-150">
+                                                    @error("missingEntities.{$idx}.new_country_name") <span class="text-red-400 text-[10px] mt-1 block">{{ $message }}</span> @enderror
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="md:col-span-2 text-xs text-slate-400 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                                        <span>Liga encontrada: <strong class="text-white">{{ \App\Models\League::find($missing['league_id'])?->name }}</strong></span>
+                                    </div>
+                                @endif
+
+                                <!-- Home Team -->
+                                @if(!$missing['home_team_exists'] && !empty($missing['home_team_name']))
+                                    <div class="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10 space-y-2">
+                                        <label class="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">Nuevo Equipo Local</label>
+                                        <input type="text" wire:model.defer="missingEntities.{{ $idx }}.home_team_name"
+                                            class="w-full bg-slate-950/85 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition duration-150">
+                                        @error("missingEntities.{$idx}.home_team_name") <span class="text-red-400 text-[10px] mt-1 block">{{ $message }}</span> @enderror
+                                    </div>
+                                @elseif(!empty($missing['home_team_name']))
+                                    <div class="text-xs text-slate-400 flex items-center gap-1.5 p-3">
+                                        <i class="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
+                                        <span>Local: <strong class="text-white">{{ \App\Models\Team::find($missing['home_team_id'])?->name }}</strong></span>
+                                    </div>
+                                @endif
+
+                                <!-- Away Team -->
+                                @if(!$missing['away_team_exists'] && !empty($missing['away_team_name']))
+                                    <div class="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10 space-y-2">
+                                        <label class="block text-[10px] font-bold text-amber-400 uppercase tracking-wider">Nuevo Equipo Visitante</label>
+                                        <input type="text" wire:model.defer="missingEntities.{{ $idx }}.away_team_name"
+                                            class="w-full bg-slate-950/85 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition duration-150">
+                                        @error("missingEntities.{$idx}.away_team_name") <span class="text-red-400 text-[10px] mt-1 block">{{ $message }}</span> @enderror
+                                    </div>
+                                @elseif(!empty($missing['away_team_name']))
+                                    <div class="text-xs text-slate-400 flex items-center gap-1.5 p-3">
+                                        <i class="fa-solid fa-circle-check text-emerald-500 text-[10px]"></i>
+                                        <span>Visitante: <strong class="text-white">{{ \App\Models\Team::find($missing['away_team_id'])?->name }}</strong></span>
+                                    </div>
+                                @endif
+
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 shrink-0">
+                    <button type="button" wire:click="$set('showMissingEntitiesModal', false)"
+                        class="py-2.5 px-4 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition duration-150">
+                        Cancelar
+                    </button>
+                    <button type="button" wire:click="saveMissingEntities"
+                        class="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition duration-150 shadow-md shadow-indigo-600/10">
+                        <i class="fa-solid fa-circle-plus mr-1"></i> Crear Entidades y Asociar
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

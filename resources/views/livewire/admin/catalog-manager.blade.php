@@ -7,7 +7,7 @@
 
     <!-- Navigation Tabs -->
     <div class="flex flex-wrap gap-2 mb-8 border-b border-slate-800 pb-4">
-        @foreach(['regions' => 'Regiones', 'countries' => 'Países', 'sports' => 'Deportes', 'leagues' => 'Ligas', 'teams' => 'Equipos', 'players' => 'Jugadores'] as $tab => $label)
+        @foreach(['regions' => 'Regiones', 'countries' => 'Países', 'sports' => 'Deportes', 'leagues' => 'Ligas', 'teams' => 'Equipos', 'players' => 'Jugadores', 'blacklist' => 'Lista Negra'] as $tab => $label)
             <button wire:click="changeTab('{{ $tab }}')"
                 class="px-5 py-2.5 rounded-xl text-sm font-semibold transition duration-200 {{ $activeTab === $tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15' : 'text-slate-400 hover:text-white hover:bg-slate-800/50' }}">
                 {{ $label }}
@@ -24,7 +24,7 @@
 
                 <h2 class="text-lg font-bold text-white mb-5 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square text-indigo-400"></i>
-                    <span>{{ $isEditMode ? 'Editar' : 'Agregar' }} {{ ucfirst($activeTab === 'countries' ? 'País' : ($activeTab === 'regions' ? 'Región' : ($activeTab === 'sports' ? 'Deporte' : ($activeTab === 'leagues' ? 'Liga' : ($activeTab === 'teams' ? 'Equipo' : 'Jugador'))))) }}</span>
+                    <span>{{ $isEditMode ? 'Editar' : 'Agregar' }} {{ $activeTab === 'countries' ? 'País' : ($activeTab === 'regions' ? 'Región' : ($activeTab === 'sports' ? 'Deporte' : ($activeTab === 'leagues' ? 'Liga' : ($activeTab === 'teams' ? 'Equipo' : ($activeTab === 'players' ? 'Jugador' : 'Liga en Lista Negra'))))) }}</span>
                 </h2>
 
                 <!-- Success Alert -->
@@ -36,7 +36,7 @@
                 @endif
 
                 <!-- Dynamic Forms based on Active Tab -->
-                <form wire:submit.prevent="save{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : 'Player'))))) }}" class="space-y-4">
+                <form wire:submit.prevent="save{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : ($activeTab === 'players' ? 'Player' : 'BlacklistedLeague')))))) }}" class="space-y-4">
                     
                     @if($activeTab === 'regions')
                         <div>
@@ -156,6 +156,15 @@
                         </div>
                     @endif
 
+                    @if($activeTab === 'blacklist')
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nombre de la Liga a Excluir</label>
+                            <input type="text" wire:model="blacklist_league_name" placeholder="Ej. U21 Premier League, Division 2"
+                                class="w-full bg-slate-900/80 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200">
+                            @error('blacklist_league_name') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
+
                     <div class="flex gap-2 pt-2">
                         <button type="submit" class="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10">
                             <i class="fa-solid fa-save text-xs"></i>
@@ -218,6 +227,8 @@
                                     <th class="py-3 px-4">Jugador</th>
                                     <th class="py-3 px-4">Equipo</th>
                                     <th class="py-3 px-4">Liga</th>
+                                @elseif($activeTab === 'blacklist')
+                                    <th class="py-3 px-4">Liga en Lista Negra</th>
                                 @endif
                                 <th class="py-3 px-4 text-right">Acciones</th>
                             </tr>
@@ -269,17 +280,20 @@
                                         <td class="py-3 px-4 text-slate-500">
                                             {{ $item->team->league->name ?? '-' }}
                                         </td>
+                                    <!-- Blacklisted Leagues Tab -->
+                                    @elseif($activeTab === 'blacklist')
+                                        <td class="py-3 px-4 font-semibold text-white">{{ $item->name }}</td>
                                     @endif
 
                                     <!-- Actions Column -->
                                     <td class="py-3 px-4 text-right">
                                         <div class="inline-flex gap-1">
-                                            <button wire:click="edit{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : 'Player'))))) }}({{ $item->id }})" 
+                                            <button wire:click="edit{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : ($activeTab === 'players' ? 'Player' : 'BlacklistedLeague')))))) }}({{ $item->id }})" 
                                                 class="p-2 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-indigo-500/10 transition duration-200"
                                                 title="Editar">
                                                 <i class="fa-solid fa-pen-to-square"></i>
                                             </button>
-                                            <button wire:click="delete{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : 'Player'))))) }}({{ $item->id }})"
+                                            <button wire:click="delete{{ ucfirst($activeTab === 'countries' ? 'Country' : ($activeTab === 'regions' ? 'Region' : ($activeTab === 'sports' ? 'Sport' : ($activeTab === 'leagues' ? 'League' : ($activeTab === 'teams' ? 'Team' : ($activeTab === 'players' ? 'Player' : 'BlacklistedLeague')))))) }}({{ $item->id }})"
                                                 wire:confirm="¿Estás seguro de que deseas eliminar este registro? (Se eliminarán los registros dependientes)."
                                                 class="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition duration-200"
                                                 title="Eliminar">
@@ -290,12 +304,12 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    @php $cols = $activeTab === 'regions' ? 2 : ($activeTab === 'countries' || $activeTab === 'sports' ? 3 : 4); @endphp
+                                    @php $cols = ($activeTab === 'regions' || $activeTab === 'blacklist') ? 2 : ($activeTab === 'countries' || $activeTab === 'sports' ? 3 : 4); @endphp
                                     <td colspan="{{ $cols }}" class="py-12 text-center text-slate-500">
                                         <div class="text-3xl mb-3 text-slate-700">
                                             <i class="fa-solid fa-folder-open"></i>
                                         </div>
-                                        <span>No se encontraron {{ $activeTab }}.</span>
+                                        <span>No se encontraron {{ $activeTab === 'blacklist' ? 'ligas excluidas' : $activeTab }}.</span>
                                     </td>
                                 </tr>
                             @endforelse
