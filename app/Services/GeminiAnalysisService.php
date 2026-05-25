@@ -393,10 +393,15 @@ class GeminiAnalysisService
         $currentDate = now()->format('Y-m-d');
         $currentTime = now()->utc()->format('H:i');
         $sportFilter = $sport ? "Deporte preferido: {$sport}" : "Cualquier deporte";
+        $minExpectedOdds = round($targetOdds * 0.85, 2);
+        $maxExpectedOdds = round($targetOdds * 1.15, 2);
 
         $prompt = "Eres un buscador de apuestas experto. La fecha y hora actuales (UTC) son: {$currentDate} a las {$currentTime} UTC. Tu tarea es buscar partidos reales programados para la fecha: {$searchDate} utilizando tu capacidad de búsqueda web en tiempo real.\n\n";
         $prompt .= "Si la fecha solicitada es hoy ({$currentDate}), incluye únicamente partidos cuya hora de inicio sea posterior a las {$currentTime} UTC (aún no han comenzado).\n\n";
-        $prompt .= "Debes proponer una única apuesta individual o una combinación de hasta 3 apuestas (parlay) de alta probabilidad que sumen una cuota combinada aproximada a: x{$targetOdds} (con un margen aceptable de +/- 15%).\n";
+        $prompt .= "REGLA CRÍTICA DE CUOTA OBJETIVO:\n";
+        $prompt .= "Debes proponer una única apuesta individual (si la cuota se acerca a la cuota objetivo) o una combinación de 2 a 3 apuestas (parlay) de alta probabilidad que al multiplicarse sumen una cuota combinada total en el rango de [x{$minExpectedOdds} - x{$maxExpectedOdds}] (la cuota objetivo ideal es x{$targetOdds}).\n";
+        $prompt .= "Si decides hacer un parlay, debes proponer varias apuestas reales y multiplicar sus cuotas individuales para alcanzar la cuota total requerida. Por ejemplo, si la cuota objetivo es x{$targetOdds}, no propongas una sola selección de cuota muy baja (como x1.57). En su lugar, si no encuentras una apuesta individual de cuota ~x{$targetOdds} con un riesgo aceptable, debes combinar 2 o 3 selecciones de cuotas individuales (por ejemplo, x1.65 y x1.65, ya que 1.65 * 1.65 = 2.72) para cumplir estrictamente con el rango de cuota combinada total solicitado.\n";
+        $prompt .= "Establece la estrategia correspondiente ('single' si es una sola selección, o 'parlay' si son varias combinadas).\n\n";
         $prompt .= "- {$sportFilter}.\n\n";
         $prompt .= "RESTRICCIONES DE CATEGORÍA (MUY IMPORTANTE - exclúyelas sin excepción):\n";
 
