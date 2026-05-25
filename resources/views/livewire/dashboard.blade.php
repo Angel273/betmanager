@@ -105,124 +105,87 @@
         </div>
     </div>
 
-    <!-- Chart & Info Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        <!-- Chart Column -->
-        <div class="lg:col-span-2">
-            <div class="glassmorphism p-6 rounded-2xl relative">
-                <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
-                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-indigo-400"></i>
-                    <span>Evolución del Beneficio Acumulado</span>
-                </h2>
-                
-                @if(count($chartData['series']) > 1)
-                    <!-- Chart Wrapper -->
-                    <div wire:ignore x-data="{
-                        initChart() {
-                            const data = @js($chartData);
-                            const options = {
-                                chart: {
-                                    type: 'area',
-                                    height: 280,
-                                    background: 'transparent',
-                                    toolbar: { show: false },
-                                    foreColor: '#64748b'
-                                },
-                                colors: ['#6366f1'],
-                                fill: {
-                                    type: 'gradient',
-                                    gradient: {
-                                        shadeIntensity: 1,
-                                        opacityFrom: 0.35,
-                                        opacityTo: 0.05,
-                                        stops: [0, 95, 100]
-                                    }
-                                },
-                                stroke: {
-                                    curve: 'smooth',
-                                    width: 3
-                                },
-                                series: [{
-                                    name: 'Beneficio Neto ($)',
-                                    data: data.series
-                                }],
-                                xaxis: {
-                                    categories: data.categories,
-                                    axisBorder: { show: false },
-                                    axisTicks: { show: false }
-                                },
-                                yaxis: {
-                                    tickAmount: 5,
-                                    labels: {
-                                        formatter: function(val) {
-                                            return '$' + val.toFixed(2);
-                                        }
-                                    }
-                                },
-                                grid: {
-                                    borderColor: '#1e293b',
-                                    strokeDashArray: 5,
-                                    xaxis: { lines: { show: false } }
-                                },
-                                dataLabels: { enabled: false },
-                                tooltip: {
-                                    theme: 'dark',
-                                    x: { show: true },
-                                    y: {
-                                        formatter: function(val) {
-                                            return '$' + val.toFixed(2);
-                                        }
+    <!-- Chart Grid -->
+    <div class="mb-8">
+        <div class="glassmorphism p-6 rounded-2xl relative">
+            <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-indigo-400"></i>
+                <span>Evolución del Beneficio Acumulado</span>
+            </h2>
+            
+            @if(count($chartData['series']) > 1)
+                <!-- Chart Wrapper -->
+                <div wire:ignore x-data="{
+                    initChart() {
+                        const data = @js($chartData);
+                        const options = {
+                            chart: {
+                                type: 'area',
+                                height: 280,
+                                background: 'transparent',
+                                toolbar: { show: false },
+                                foreColor: '#64748b'
+                            },
+                            colors: ['#6366f1'],
+                            fill: {
+                                type: 'gradient',
+                                gradient: {
+                                    shadeIntensity: 1,
+                                    opacityFrom: 0.35,
+                                    opacityTo: 0.05,
+                                    stops: [0, 95, 100]
+                                }
+                            },
+                            stroke: {
+                                curve: 'smooth',
+                                width: 3
+                            },
+                            series: [{
+                                name: 'Beneficio Neto ($)',
+                                data: data.series
+                            }],
+                            xaxis: {
+                                categories: data.categories,
+                                axisBorder: { show: false },
+                                axisTicks: { show: false }
+                            },
+                            yaxis: {
+                                tickAmount: 5,
+                                labels: {
+                                    formatter: function(val) {
+                                        return '$' + val.toFixed(2);
                                     }
                                 }
-                            };
-                            const chart = new ApexCharts(this.$refs.chart, options);
-                            chart.render();
-                        }
-                    }" x-init="initChart()">
-                        <div x-ref="chart"></div>
-                    </div>
-                @else
-                    <div class="py-24 text-center text-slate-600">
-                        <i class="fa-solid fa-chart-area text-5xl mb-4 text-slate-800"></i>
-                        <span class="block">Se requiere calificar apuestas para graficar tu rendimiento.</span>
-                    </div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Info Widget Column (E.g. Profile details and quick advice) -->
-        <div class="lg:col-span-1">
-            <div class="glassmorphism p-6 rounded-2xl relative h-full flex flex-col justify-between">
-                <div class="absolute inset-0 rounded-2xl border border-indigo-500/10 pointer-events-none"></div>
-                
-                <div>
-                    <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-lightbulb text-indigo-400"></i>
-                        <span>Consejos de Rendimiento</span>
-                    </h2>
-                    
-                    <div class="space-y-4 text-sm text-slate-300">
-                        <div class="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex gap-3 items-start">
-                            <i class="fa-solid fa-circle-info text-indigo-400 mt-0.5 shrink-0"></i>
-                            <p class="text-xs">
-                                <strong>Controla el ROI:</strong> Apuesta con cuotas de valor entre 1.50 y 2.20 para estabilizar tu tasa de acierto y optimizar tu yield.
-                            </p>
-                        </div>
-                        <div class="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 flex gap-3 items-start">
-                            <i class="fa-solid fa-robot text-amber-400 mt-0.5 shrink-0"></i>
-                            <p class="text-xs">
-                                <strong>Análisis con IA:</strong> ¿Tienes dudas sobre un Parlay? Utiliza la opción de **Analizar con IA** para buscar probabilidades en tiempo real.
-                            </p>
-                        </div>
-                    </div>
+                            },
+                            grid: {
+                                borderColor: '#1e293b',
+                                strokeDashArray: 5,
+                                xaxis: { lines: { show: false } }
+                            },
+                            dataLabels: { enabled: false },
+                            tooltip: {
+                                theme: 'dark',
+                                x: { show: true },
+                                y: {
+                                    formatter: function(val) {
+                                        return '$' + val.toFixed(2);
+                                    }
+                                }
+                            }
+                        };
+                        const chart = new ApexCharts(this.$refs.chart, options);
+                        chart.render();
+                    }
+                }" x-init="initChart()">
+                    <div x-ref="chart"></div>
                 </div>
-
-                <div class="mt-6 pt-4 border-t border-slate-800/60 text-xs text-slate-500 text-center flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-shield-halved text-indigo-400/50"></i>
-                    <span>Tus datos y registros están guardados localmente.</span>
+            @else
+                <div class="py-24 text-center text-slate-600">
+                    <i class="fa-solid fa-chart-area text-5xl mb-4 text-slate-800"></i>
+                    <span class="block">Se requiere calificar apuestas para graficar tu rendimiento.</span>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 

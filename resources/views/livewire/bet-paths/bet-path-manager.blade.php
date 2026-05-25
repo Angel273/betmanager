@@ -504,8 +504,8 @@
                 </div>
 
                 <!-- Input preferences -->
-                @if(!$suggestedStepData && !$suggestingLoading)
-                    <div class="space-y-4">
+                @if(!$suggestedStepData)
+                    <div wire:loading.remove wire:target="getStepSuggestions" class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Deporte Preferido</label>
                             <select wire:model.defer="suggestedStepSport"
@@ -528,15 +528,21 @@
                         </div>
 
                         <button type="button" wire:click="getStepSuggestions"
-                            class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10">
-                            <i class="fa-solid fa-magnifying-glass"></i>
+                            wire:loading.attr="disabled"
+                            class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-sm transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span wire:loading.remove wire:target="getStepSuggestions">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <span wire:loading wire:target="getStepSuggestions">
+                                <i class="fa-solid fa-circle-notch animate-spin"></i>
+                            </span>
                             <span>Buscar Combinación con IA</span>
                         </button>
                     </div>
                 @endif
 
                 <!-- Loading State -->
-                @if($suggestingLoading)
+                <div wire:loading wire:target="getStepSuggestions" class="w-full">
                     <div class="flex flex-col items-center justify-center py-12 text-slate-400 space-y-4">
                         <div class="relative h-12 w-12">
                             <div class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></div>
@@ -546,11 +552,11 @@
                         </div>
                         <span class="text-sm font-semibold tracking-wider animate-pulse text-indigo-300">Buscando apuestas reales en internet para llegar a cuota x{{ $suggestedStepOdds }}...</span>
                     </div>
-                @endif
+                </div>
 
                 <!-- Results Display -->
-                @if($suggestedStepData && !$suggestingLoading)
-                    <div class="space-y-4">
+                @if($suggestedStepData)
+                    <div wire:loading.remove wire:target="getStepSuggestions" class="space-y-4">
                         <!-- Strategy & Confidence Badge -->
                         <div class="flex justify-between items-center pb-2 border-b border-slate-850">
                             <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
