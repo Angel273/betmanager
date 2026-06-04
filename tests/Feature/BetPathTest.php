@@ -308,5 +308,191 @@ class BetPathTest extends TestCase
         $this->assertEquals('Fútbol', $selection->sport->name);
         $this->assertEquals('La Liga', $selection->league->name);
     }
+
+    /**
+     * Test that manual settling a step as WON progresses the Bet Path.
+     */
+    public function test_manual_settle_step_won_progresses_path()
+    {
+        $path = BetPath::create([
+            'user_id' => $this->user->id,
+            'name' => 'Reto Manual Won',
+            'start_amount' => 10.00,
+            'target_amount' => 50.00,
+            'reinvestment_rate' => 100.00,
+            'current_step' => 1,
+            'total_steps' => 3,
+            'status' => 'active',
+        ]);
+
+        $step1 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 1,
+            'calculated_odds' => 2.00,
+            'expected_stake' => 10.00,
+            'expected_payout' => 20.00,
+            'status' => 'pending',
+        ]);
+
+        $step2 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 2,
+            'calculated_odds' => 1.50,
+            'expected_stake' => 20.00,
+            'expected_payout' => 30.00,
+            'status' => 'pending',
+        ]);
+
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\BetPaths\BetPathManager::class)
+            ->call('openManualSettleModal', $step1->id)
+            ->set('manualSettleType', 'won')
+            ->set('manualSettlePayout', 20.00)
+            ->call('settleStepManually');
+
+        $path->refresh();
+        $step1->refresh();
+        $step2->refresh();
+
+        $this->assertEquals('won', $step1->status);
+        $this->assertEquals(2, $path->current_step);
+        $this->assertEquals(20.00, $step2->expected_stake);
+        $this->assertEquals(30.00, $step2->expected_payout);
+    }
+
+    /**
+     * Test that manual settling a step as VOIDED progresses the Bet Path and carries the stake over.
+     */
+    public function test_manual_settle_step_voided_progresses_path_without_losing()
+    {
+        $path = BetPath::create([
+            'user_id' => $this->user->id,
+            'name' => 'Reto Manual Void',
+            'start_amount' => 10.00,
+            'target_amount' => 50.00,
+            'reinvestment_rate' => 80.00, // 80% reinvestment rate
+            'current_step' => 1,
+            'total_steps' => 3,
+            'status' => 'active',
+        ]);
+
+        $step1 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 1,
+            'calculated_odds' => 2.00,
+            'expected_stake' => 10.00,
+            'expected_payout' => 20.00,
+            'status' => 'pending',
+        ]);
+
+        $step2 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 2,
+            'calculated_odds' => 1.50,
+            'expected_stake' => 20.00,
+            'expected_payout' => 30.00,
+            'status' => 'pending',
+        ]);
+
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\BetPaths\BetPathManager::class)
+            ->call('openManualSettleModal', $step1->id)
+            ->set('manualSettleType', 'voided')
+            ->call('settleStepManually');
+
+        $path->refresh();
+        $step1->refresh();
+        $step2->refresh();
+
+        $this->assertEquals('voided', $step1->status);
+        $this->assertEquals(2, $path->current_step);
+        // Payout of voided is stake ($10.00). In voided steps, reinvestment rate is not applied, 100% of returned stake is carried over.
+        $this->assertEquals(10.00, $step2->expected_stake);
+        $this->assertEquals(15.00, $step2->expected_payout);
+    }
+
+    /**
+     * Test that reopening a failed Bet Path resets subsequent steps and recalculates stakes correctly.
+     */
+    public function test_reopen_failed_path_resets_subsequent_steps()
+    {
+        $path = BetPath::create([
+            'user_id' => $this->user->id,
+            'name' => 'Reto Reopen',
+            'start_amount' => 10.00,
+            'target_amount' => 50.00,
+            'reinvestment_rate' => 100.00,
+            'current_step' => 2,
+            'total_steps' => 3,
+            'status' => 'failed',
+        ]);
+
+        $step1 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 1,
+            'calculated_odds' => 2.00,
+            'expected_stake' => 10.00,
+            'expected_payout' => 20.00,
+            'status' => 'won',
+        ]);
+
+        $step2 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 2,
+            'calculated_odds' => 1.50,
+            'expected_stake' => 20.00,
+            'expected_payout' => 30.00,
+            'status' => 'lost',
+        ]);
+
+        $step3 = BetPathStep::create([
+            'bet_path_id' => $path->id,
+            'step_number' => 3,
+            'calculated_odds' => 1.50,
+            'expected_stake' => 30.00,
+            'expected_payout' => 45.00,
+            'status' => 'pending',
+        ]);
+
+        // Create a dummy bet for step 2
+        $bet = Bet::create([
+            'user_id' => $this->user->id,
+            'type' => 'single',
+            'stake' => 20.00,
+            'odds' => 1.50,
+            'status' => 'lost',
+            'bet_path_id' => $path->id,
+            'bet_path_step' => 2,
+        ]);
+        $step2->update(['bet_id' => $bet->id]);
+
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\BetPaths\BetPathManager::class)
+            ->call('openReopenModal', $path->id)
+            ->set('reopenStepNumber', 2)
+            ->call('reopenPath');
+
+        $path->refresh();
+        $step1->refresh();
+        $step2->refresh();
+        $step3->refresh();
+        $bet->refresh();
+
+        $this->assertEquals('active', $path->status);
+        $this->assertEquals(2, $path->current_step);
+        
+        $this->assertEquals('won', $step1->status);
+        
+        $this->assertEquals('pending', $step2->status);
+        $this->assertNull($step2->bet_id);
+        $this->assertEquals(20.00, $step2->expected_stake); // based on step 1 won (20.00 expected payout * 100%)
+        
+        $this->assertEquals('pending', $step3->status);
+        $this->assertEquals(30.00, $step3->expected_stake); // recalculated based on step 2 expected payout (20.00 stake * 1.50 odds = 30.00 payout)
+
+        // The bet should be dissociated
+        $this->assertNull($bet->bet_path_id);
+        $this->assertNull($bet->bet_path_step);
+    }
 }
 

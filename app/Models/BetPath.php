@@ -32,4 +32,24 @@ class BetPath extends Model
     {
         return $this->hasMany(BetPathStep::class);
     }
+
+    public function getCurrentAmountAttribute()
+    {
+        $lastCompletedStep = $this->steps()
+            ->whereIn('status', ['won', 'voided'])
+            ->orderBy('step_number', 'desc')
+            ->first();
+            
+        if ($lastCompletedStep) {
+            if ($lastCompletedStep->bet_id && $lastCompletedStep->bet) {
+                return $lastCompletedStep->bet->payout;
+            }
+            if ($lastCompletedStep->status === 'voided') {
+                return $lastCompletedStep->expected_stake;
+            }
+            return $lastCompletedStep->expected_payout;
+        }
+        return $this->start_amount;
+    }
 }
+

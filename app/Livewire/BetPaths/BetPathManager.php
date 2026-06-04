@@ -46,6 +46,17 @@ class BetPathManager extends Component
     public $suggestingLoading = false;
     public $suggestingErrorMessage = '';
 
+    // Manual settlement properties
+    public $showManualSettleModal = false;
+    public $manualSettleStepId = null;
+    public $manualSettleType = 'won'; // won, voided
+    public $manualSettlePayout = '';
+
+    // Reopen path properties
+    public $showReopenModal = false;
+    public $reopenPathId = null;
+    public $reopenStepNumber = 1;
+
     public function mount()
     {
         abort_unless(auth()->check(), 403);
@@ -389,6 +400,217 @@ class BetPathManager extends Component
         } catch (Exception $e) {
             \Log::error('Error accepting Bet Path step suggestion: ' . $e->getMessage());
             $this->suggestingErrorMessage = 'Error al registrar y vincular la apuesta: ' . $e->getMessage();
+        }
+    }
+
+    public function openManualSettleModal($stepId)
+    {
+        $step = BetPathStep::findOrFail($stepId);
+        $this->manualSettleStepId = $stepId;
+        $this->manualSettleType = 'won';
+        $this->manualSettlePayout = number_format($step->expected_payout, 2, '.', '');
+        $this->showManualSettleModal = true;
+    }
+
+    public function updatedManualSettleType($value)
+    {
+        if ($this->manualSettleStepId) {
+            $step = BetPathStep::find($this->manualSettleStepId);
+            if ($step) {
+                if ($value === 'voided') {
+                    $this->manualSettlePayout = number_format($step->expected_stake, 2, '.', '');
+                } else {
+                    $this->manualSettlePayout = number_format($step->expected_payout, 2, '.', '');
+                }
+            }
+        }
+    }
+
+    public function settleStepManually()
+    {
+        $this->validate([
+            'manualSettleType' => 'required|in:won,voided',
+            'manualSettlePayout' => 'required_if:manualSettleType,won|nullable|numeric|min:0',
+        ], [
+            'manualSettlePayout.required_if' => 'El pago real es obligatorio para un paso ganado.',
+            'manualSettlePayout.numeric' => 'El pago real debe ser un valor numérico.',
+            'manualSettlePayout.min' => 'El pago real no puede ser negativo.',
+        ]);
+
+        try {
+            \DB::transaction(function () {
+                $step = BetPathStep::findOrFail($this->manualSettleStepId);
+                $path = $step->betPath;
+
+                if ($path->status !== 'active') {
+                    throw new Exception('El reto no está activo.');
+                }
+
+                $status = $this->manualSettleType;
+                
+                if ($status === 'won') {
+                    $payout = floatval($this->manualSettlePayout);
+                    $expectedPayout = floatval($step->expected_payout);
+
+                    if ($payout >= $expectedPayout) {
+                        $step->update(['status' => 'won']);
+                        
+                        // Progress path
+                        if ($step->step_number == $path->total_steps) {
+                            $path->update([
+                                'status' => 'completed'
+                            ]);
+                        } else {
+                            $nextStepNumber = $step->step_number + 1;
+                            $reinvestmentRate = floatval($path->reinvestment_rate) / 100;
+                            $nextStake = round($payout * $reinvestmentRate, 2);
+
+                            $nextStep = BetPathStep::where('bet_path_id', $path->id)
+                                ->where('step_number', $nextStepNumber)
+                                ->first();
+
+                            if ($nextStep) {
+                                $nextStep->update([
+                                    'expected_stake' => $nextStake,
+                                    'expected_payout' => round($nextStake * floatval($nextStep->calculated_odds), 2)
+                                ]);
+                            }
+
+                            $path->update([
+                                'current_step' => $nextStepNumber
+                            ]);
+                        }
+                    } else {
+                        // Payout is lower than expected -> path fails!
+                        $step->update(['status' => 'lost']);
+                        $path->update([
+                            'status' => 'failed'
+                        ]);
+                    }
+                } else {
+                    // voided
+                    $payout = floatval($step->expected_stake);
+                    $step->update(['status' => 'voided']);
+
+                    // Voided steps don't fail the path, they carry the stake to the next step
+                    if ($step->step_number == $path->total_steps) {
+                        // Last step voided means path is completed but with original stake
+                        $path->update([
+                            'status' => 'completed'
+                        ]);
+                    } else {
+                        $nextStepNumber = $step->step_number + 1;
+                        $nextStake = $payout;
+
+                        $nextStep = BetPathStep::where('bet_path_id', $path->id)
+                            ->where('step_number', $nextStepNumber)
+                            ->first();
+
+                        if ($nextStep) {
+                            $nextStep->update([
+                                'expected_stake' => $nextStake,
+                                'expected_payout' => round($nextStake * floatval($nextStep->calculated_odds), 2)
+                            ]);
+                        }
+
+                        $path->update([
+                            'current_step' => $nextStepNumber
+                        ]);
+                    }
+                }
+            });
+
+            session()->flash('success', 'Paso calificado manualmente con éxito.');
+            $this->showManualSettleModal = false;
+            $this->reset(['manualSettleStepId', 'manualSettlePayout']);
+        } catch (Exception $e) {
+            session()->flash('error', 'Error al calificar el paso manualmente: ' . $e->getMessage());
+        }
+    }
+
+    public function openReopenModal($pathId)
+    {
+        $this->reopenPathId = $pathId;
+        $path = BetPath::findOrFail($pathId);
+        $failedStep = $path->steps()->where('status', 'lost')->first();
+        $this->reopenStepNumber = $failedStep ? $failedStep->step_number : 1;
+        $this->showReopenModal = true;
+    }
+
+    public function reopenPath()
+    {
+        $this->validate([
+            'reopenStepNumber' => 'required|integer|min:1',
+        ]);
+
+        try {
+            \DB::transaction(function () {
+                $path = BetPath::findOrFail($this->reopenPathId);
+                $targetStepNumber = intval($this->reopenStepNumber);
+
+                // Reopen the path
+                $path->update([
+                    'status' => 'active',
+                    'current_step' => $targetStepNumber
+                ]);
+
+                // Adjust steps
+                $steps = $path->steps()->orderBy('step_number', 'asc')->get();
+
+                foreach ($steps as $step) {
+                    if ($step->step_number >= $targetStepNumber) {
+                        // Dissociate and clean up any linked bet
+                        if ($step->bet_id) {
+                            $bet = $step->bet;
+                            if ($bet) {
+                                $bet->update([
+                                    'bet_path_id' => null,
+                                    'bet_path_step' => null
+                                ]);
+                            }
+                        }
+
+                        $step->update([
+                            'bet_id' => null,
+                            'status' => 'pending'
+                        ]);
+                    }
+                }
+
+                // Recalculate expected stakes for the reopened steps
+                foreach ($steps as $step) {
+                    if ($step->step_number >= $targetStepNumber) {
+                        if ($step->step_number == 1) {
+                            $stake = floatval($path->start_amount);
+                        } else {
+                            $prevStep = $steps->where('step_number', $step->step_number - 1)->first();
+                            
+                            // Get actual payout of previous step
+                            if ($prevStep->bet_id && $prevStep->bet) {
+                                $payout = floatval($prevStep->bet->payout);
+                            } elseif ($prevStep->status === 'voided') {
+                                $payout = floatval($prevStep->expected_stake);
+                            } else {
+                                $payout = floatval($prevStep->expected_payout);
+                            }
+                            
+                            $reinvestmentRate = floatval($path->reinvestment_rate) / 100;
+                            $stake = round($payout * $reinvestmentRate, 2);
+                        }
+
+                        $step->update([
+                            'expected_stake' => $stake,
+                            'expected_payout' => round($stake * floatval($step->calculated_odds), 2)
+                        ]);
+                    }
+                }
+            });
+
+            session()->flash('success', 'Bet Path reabierto con éxito. El progreso se reanudó desde el Paso #' . $this->reopenStepNumber . '.');
+            $this->showReopenModal = false;
+            $this->activeSection = 'active';
+        } catch (Exception $e) {
+            session()->flash('error', 'Error al reabrir el Bet Path: ' . $e->getMessage());
         }
     }
 

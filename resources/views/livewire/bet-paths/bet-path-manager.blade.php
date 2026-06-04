@@ -115,6 +115,13 @@
                                             <span>Registro Manual</span>
                                         </a>
 
+                                        <!-- Calificar Manualmente (Sin Apuesta) -->
+                                        <button type="button" wire:click="openManualSettleModal({{ $currentStepData->id }})"
+                                            class="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-bold transition duration-200 flex items-center justify-center gap-2 border border-slate-700 text-xs">
+                                            <i class="fa-solid fa-circle-check text-slate-450"></i>
+                                            <span>Calificar Manualmente</span>
+                                        </button>
+
                                         <!-- Suggest with IA -->
                                         <button type="button" wire:click="openSuggestionModal({{ $path->id }}, {{ $path->current_step }}, {{ $currentStepData->calculated_odds }}, {{ $currentStepData->expected_stake }})"
                                             class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/15 text-sm">
@@ -437,11 +444,21 @@
                                     @endif
                                 </td>
                                 <td class="py-4 px-4 text-right">
-                                    <button wire:click="deleteBetPath({{ $path->id }})" 
-                                        wire:confirm="¿Estás seguro de que deseas eliminar este registro histórico?"
-                                        class="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition duration-200">
-                                        <i class="fa-solid fa-trash-can"></i>
-                                    </button>
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        @if($path->status === 'failed')
+                                            <button wire:click="openReopenModal({{ $path->id }})" 
+                                                class="p-2 text-indigo-400 hover:text-indigo-300 rounded-lg hover:bg-indigo-500/10 transition duration-200"
+                                                title="Reabrir Reto">
+                                                <i class="fa-solid fa-rotate-left"></i>
+                                            </button>
+                                        @endif
+                                        <button wire:click="deleteBetPath({{ $path->id }})" 
+                                            wire:confirm="¿Estás seguro de que deseas eliminar este registro histórico?"
+                                            class="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition duration-200"
+                                            title="Eliminar Reto">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -624,6 +641,146 @@
                             </button>
                         </div>
                     </div>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    <!-- MANUAL RESOLUTION MODAL -->
+    @if($showManualSettleModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <!-- Backdrop with blur -->
+            <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md" wire:click="$set('showManualSettleModal', false)"></div>
+
+            <!-- Modal Content Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full relative z-10 shadow-2xl glassmorphism">
+                <!-- Close Button -->
+                <button type="button" wire:click="$set('showManualSettleModal', false)" class="absolute top-4 right-4 text-slate-500 hover:text-white transition duration-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+
+                <!-- Modal Title -->
+                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-indigo-400"></i>
+                    <span>Calificar Paso Manualmente</span>
+                </h3>
+
+                <form wire:submit.prevent="settleStepManually" class="space-y-4">
+                    <!-- Settle Type Select -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resultado del Paso</label>
+                        <select wire:model.live="manualSettleType"
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-200">
+                            <option value="won">Ganado</option>
+                            <option value="voided">Anulado / Void / Reembolsado</option>
+                        </select>
+                        @error('manualSettleType') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
+                    <!-- Payout Input -->
+                    @if($manualSettleType === 'won')
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Monto de Retorno / Pago Real ($)</label>
+                            <input type="number" step="0.01" wire:model="manualSettlePayout" placeholder="0.00"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition duration-200">
+                            <span class="block text-[10px] text-slate-500 mt-1">El paso se considerará exitoso si el pago es mayor o igual al pago esperado.</span>
+                            @error('manualSettlePayout') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                    @else
+                        <!-- Informational note for Voided -->
+                        <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 space-y-1">
+                            <div class="flex justify-between">
+                                <span>Retorno Automático (Stake):</span>
+                                <span class="font-bold text-indigo-400">${{ number_format($manualSettlePayout ?: 0, 2) }}</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-2">Al anular el paso, el dinero invertido se recupera y se arrastra como stake para el siguiente paso, sin generar ganancias ni pérdidas.</p>
+                        </div>
+                    @endif
+
+                    <!-- Actions -->
+                    <div class="grid grid-cols-2 gap-4 pt-2">
+                        <button type="button" wire:click="$set('showManualSettleModal', false)"
+                            class="w-full py-3 px-4 rounded-xl border border-slate-800 hover:bg-slate-800/40 text-slate-400 hover:text-white font-bold transition duration-200 text-sm">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                            class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition duration-200 text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/10">
+                            <i class="fa-solid fa-save"></i> Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    <!-- REOPEN PATH MODAL -->
+    @if($showReopenModal)
+        @php
+            $reopenPath = \App\Models\BetPath::find($reopenPathId);
+        @endphp
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <!-- Backdrop with blur -->
+            <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md" wire:click="$set('showReopenModal', false)"></div>
+
+            <!-- Modal Content Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full relative z-10 shadow-2xl glassmorphism">
+                <!-- Close Button -->
+                <button type="button" wire:click="$set('showReopenModal', false)" class="absolute top-4 right-4 text-slate-500 hover:text-white transition duration-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+
+                <!-- Modal Title -->
+                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-left text-indigo-400"></i>
+                    <span>Reabrir Reto Bet Path</span>
+                </h3>
+
+                @if($reopenPath)
+                    <p class="text-xs text-slate-400 mb-4">
+                        Vas a reabrir el reto <span class="text-white font-semibold">"{{ $reopenPath->name }}"</span>. Selecciona desde qué paso deseas reanudar el reto.
+                    </p>
+
+                    <form wire:submit.prevent="reopenPath" class="space-y-4">
+                        <!-- Step Selector -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Paso a Reanudar</label>
+                            <select wire:model="reopenStepNumber"
+                                class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-slate-300 focus:outline-none focus:border-indigo-500 transition duration-200">
+                                @for($i = 1; $i <= $reopenPath->total_steps; $i++)
+                                    @php
+                                        $sData = $reopenPath->steps->where('step_number', $i)->first();
+                                    @endphp
+                                    <option value="{{ $i }}">
+                                        Paso #{{ $i }} (Stake: ${{ number_format($sData?->expected_stake ?: 0, 2) }}) - {{ strtoupper($sData?->status ?: 'pendiente') }}
+                                    </option>
+                                @endfor
+                            </select>
+                            @error('reopenStepNumber') <span class="text-red-400 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <!-- Warning Alert -->
+                        <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs space-y-1">
+                            <div class="flex gap-2 items-center font-bold">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <span>Atención</span>
+                            </div>
+                            <p class="text-[10px] text-amber-300/80 mt-1 leading-relaxed">
+                                Los pasos desde el seleccionado en adelante volverán al estado <strong>pendiente</strong>. Las apuestas vinculadas a estos pasos se desvincularán del reto (pero permanecerán en tu historial general). Los montos y stakes esperados se recalcularán automáticamente a partir del paso anterior.
+                            </p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <button type="button" wire:click="$set('showReopenModal', false)"
+                                class="w-full py-3 px-4 rounded-xl border border-slate-800 hover:bg-slate-800/40 text-slate-400 hover:text-white font-bold transition duration-200 text-sm">
+                                Cancelar
+                            </button>
+                            <button type="submit"
+                                class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold transition duration-200 text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/10">
+                                <i class="fa-solid fa-folder-open"></i> Reabrir Reto
+                            </button>
+                        </div>
+                    </form>
                 @endif
             </div>
         </div>
